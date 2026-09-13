@@ -1,0 +1,84 @@
+[
+  {
+    "id": "1789109197383",
+    "description": "incomez",
+    "account": "income",
+    "method": "Cash",
+    "amount": 25000,
+    "goalId": null,
+    "date": "2026-09-11T06:46:37.383Z"
+  },
+  {
+    "id": "1789109144575",
+    "description": "emz",
+    "account": "protection",
+    "method": "Cash",
+    "amount": 10000,
+    "goalId": null,
+    "date": "2026-09-11T06:45:44.576Z"
+  },
+  {
+    "id": "1789109042605",
+    "description": "Travel",
+    "account": "savings",
+    "method": "E-Wallet",
+    "amount": 1000,
+    "goalId": "1789109022215",
+    "date": "2026-09-11T06:44:02.605Z"
+  },
+  {
+    "id": "1789109000422",
+    "description": "TEST11111",
+    "account": "investments",
+    "method": "Credit Card",
+    "amount": 5000,
+    "goalId": null,
+    "date": "2026-09-11T06:43:20.422Z"
+  },
+  {
+    "id": "1789107192502",
+    "description": "test idempotency",
+    "account": "income",
+    "method": "Cash",
+    "amount": 1000,
+    "date": "2026-09-11T06:13:12.502Z"
+  },
+  {
+    "id": "1789106544571",
+    "description": "PSE",
+    "account": "investments",
+    "method": "Debit Card",
+    "amount": 10000,
+    "date": "2026-09-11T06:02:24.571Z"
+  },
+  {
+    "id": "1789106491578",
+    "description": "side quest",
+    "account": "income",
+    "method": "Debit Card",
+    "amount": 550,
+    "date": "2026-09-11T06:01:31.578Z"
+  },
+  {
+    "id": "1789106474352",
+    "description": "save",
+    "account": "savings",
+    "method": "Cash",
+    "amount": 500,
+    "date": "2026-09-11T06:01:14.352Z"
+  },
+  {
+    "id": "1789101732464",
+    "description": "Hojicha",
+    "account": "spending",
+    "amount": 185,
+    "date": "2026-09-11T04:42:12.464Z"
+  },
+  {
+    "id": "1789101260941",
+    "description": "Allowance",
+    "account": "income",
+    "amount": 1000,
+    "date": "2026-09-11T04:34:20.941Z"
+  }
+]
