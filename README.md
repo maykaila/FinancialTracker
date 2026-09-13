@@ -41,7 +41,6 @@ A cozy, aesthetic indie-web financial planner and tracker built with Node.js, Ex
 │   │   ├── app.js           # App logic, state management, and edge-case sync
 │   │   └── charts.js        # Chart.js initialization and updates
 │   └── index.html           # Main dashboard markup
-├── .env.example             # Template for environment variables
 ├── .gitignore               # Ignored files (node_modules, .env)
 ├── package.json             # Node dependencies and scripts
 ├── server.js                # Express server and config endpoint
