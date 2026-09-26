@@ -17,6 +17,7 @@ body {
     padding: 24px 15px;
     display: flex;
     justify-content: center;
+    overflow-x: hidden;
 }
 
 /* Master Planner Container */
@@ -26,9 +27,10 @@ body {
     background-color: #ffffff;
     border: 2.5px solid #ded5c8;
     border-radius: 28px;
-    padding: 30px 28px;
+    padding: 30px 24px;
     box-shadow: 0 12px 36px rgba(90, 75, 60, 0.06);
     position: relative;
+    overflow: hidden;
 }
 
 /* Header & Brand Area */
@@ -49,7 +51,7 @@ body {
 }
 
 .brand-logo {
-    width: 58px;
+    width: 54px;
     height: auto;
     cursor: pointer;
     filter: 
@@ -69,12 +71,11 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0;
 }
 
 .main-title {
     font-family: 'Cherry Bomb One', cursive;
-    font-size: 34px;
+    font-size: 32px;
     color: #df6d82;
     letter-spacing: 1.5px;
     line-height: 1.1;
@@ -84,7 +85,7 @@ body {
 .script-title {
     font-family: 'Cherry Bomb One', cursive;
     color: #557d62;
-    font-size: 32px;
+    font-size: 30px;
     letter-spacing: 1px;
     text-shadow: 2px 2px 0px #e2f0e6;
 }
@@ -96,10 +97,7 @@ body {
     letter-spacing: 0.3px;
 }
 
-/* =========================================================
-   INDIE WEB / RETRO DECAL STICKER SYSTEM
-   ========================================================= */
-
+/* Indie Web Stickers */
 @keyframes stickerWiggle {
     0%   { transform: rotate(var(--rot, 0deg)) scale(1); }
     25%  { transform: rotate(calc(var(--rot, 0deg) - 5deg)) scale(1.1); }
@@ -126,15 +124,8 @@ body {
 
 .deco-sticker:hover {
     animation: stickerWiggle 0.35s ease-in-out infinite alternate;
-    filter: 
-        drop-shadow(2px 0 0 #ffffff)
-        drop-shadow(-2px 0 0 #ffffff)
-        drop-shadow(0 2px 0 #ffffff)
-        drop-shadow(0 -2px 0 #ffffff)
-        drop-shadow(3px 5px 0px rgba(90, 75, 60, 0.3));
 }
 
-/* Card Tag Anchors & Adjusted Decal Positions */
 .card-tag-wrapper {
     position: absolute;
     top: -12px;
@@ -154,23 +145,23 @@ body {
     --rot: -14deg;
     left: -20px;
     top: -8px;
-    width: 26px;
+    width: 24px;
     transform: rotate(var(--rot));
 }
 
 .sticker-tag-piggy {
     --rot: -6deg;
-    left: -24px;
+    left: -22px;
     top: -10px;
-    width: 32px;
+    width: 28px;
     transform: rotate(var(--rot));
 }
 
 .sticker-table-right {
     --rot: 12deg;
-    top: -20px;
+    top: -18px;
     right: 14px;
-    width: 36px;
+    width: 32px;
     transform: rotate(var(--rot));
 }
 
@@ -178,7 +169,7 @@ body {
     --rot: -15deg;
     top: -18px;
     right: 12px;
-    width: 34px;
+    width: 30px;
     transform: rotate(var(--rot));
 }
 
@@ -189,7 +180,7 @@ body {
     background-image: url('../assets/washi.png');
     background-repeat: repeat-x;
     background-size: auto 100%;
-    margin: 6px 0 22px;
+    margin: 8px 0 22px;
     opacity: 0.85;
 }
 
@@ -197,14 +188,12 @@ body {
 .header-filter-area {
     display: flex;
     align-items: center;
-    position: relative;
-    padding-top: 4px;
 }
 
 .filter-controls-wrap {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
 }
 
 .filter-controls-wrap label {
@@ -218,6 +207,7 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
 }
 
 .header-filter-area select,
@@ -244,17 +234,18 @@ body {
 /* 5 Accounts Metric Ribbon */
 .metrics-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 12px;
-    margin-bottom: 22px;
+    margin-bottom: 24px;
 }
 
 .metric-card {
     border-radius: 18px;
-    padding: 14px 12px;
+    padding: 14px 10px;
     text-align: center;
     border: 2px solid transparent;
     transition: transform 0.15s ease;
+    word-break: break-word;
 }
 
 .metric-card:hover {
@@ -266,7 +257,7 @@ body {
     font-weight: 800;
     letter-spacing: 0.6px;
     display: block;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
     text-transform: uppercase;
 }
 
@@ -299,16 +290,17 @@ body {
 /* Dashboard Grids */
 .dashboard-row {
     display: grid;
-    gap: 20px;
-    margin-bottom: 22px;
+    gap: 22px;
+    margin-bottom: 24px;
 }
 
 .charts-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .main-content-row {
-    grid-template-columns: 1.6fr 1fr;
+    grid-template-columns: 1.5fr 1fr;
+    align-items: start;
 }
 
 /* Planner Cards */
@@ -316,7 +308,7 @@ body {
     background-color: #ffffff;
     border: 2px solid #ded5c8;
     border-radius: 20px;
-    padding: 24px 20px 20px;
+    padding: 24px 18px 18px;
     position: relative;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.02);
 }
@@ -337,7 +329,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
 }
 
 .tag-green { background-color: #edf7f0; color: #357448; border-color: #cae8d3; }
@@ -349,44 +341,49 @@ body {
 
 .chart-box {
     position: relative;
-    height: 220px;
+    height: 240px;
     width: 100%;
     display: flex;
     justify-content: center;
+    align-items: center;
 }
 
 /* Table Area */
 .table-card {
-    overflow: visible !important;
+    overflow: hidden;
 }
 
 .table-container {
-    max-height: 580px;
+    max-height: 520px;
     overflow-y: auto;
-    overflow-x: visible;
-    margin-top: 4px;
-    padding-bottom: 60px;
+    overflow-x: auto;
+    margin-top: 6px;
+    -webkit-overflow-scrolling: touch;
 }
 
 .planner-table {
     width: 100%;
+    min-width: 440px;
     border-collapse: collapse;
-    font-size: 12.5px;
+    font-size: 12px;
 }
 
 .planner-table th {
     text-align: left;
-    padding: 8px 10px;
-    font-size: 11px;
+    padding: 10px 8px;
+    font-size: 10.5px;
     font-weight: 800;
     color: #7d756d;
     border-bottom: 2px solid #ede5da;
     background-color: #fcfbf9;
     text-transform: uppercase;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 .planner-table td {
-    padding: 10px;
+    padding: 10px 8px;
     border-bottom: 1.5px solid #f4efe7;
     color: #4a423b;
     font-weight: 700;
@@ -401,10 +398,10 @@ body {
 
 .badge-pill {
     display: inline-block;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 800;
-    padding: 2px 10px;
-    border-radius: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
     text-transform: capitalize;
 }
 
@@ -416,10 +413,10 @@ body {
 
 .method-badge {
     display: inline-block;
-    font-size: 10px;
+    font-size: 9.5px;
     font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 8px;
+    padding: 2px 6px;
+    border-radius: 6px;
     background-color: #f0eae1;
     color: #5c544d;
     border: 1px solid #ded5c8;
@@ -457,7 +454,7 @@ body {
     border: 2px solid #ded5c8;
     border-radius: 12px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-    z-index: 1000;
+    z-index: 100;
     min-width: 100px;
     overflow: hidden;
 }
@@ -498,22 +495,22 @@ body {
 
 /* Forms */
 .planner-form .form-group {
-    margin-bottom: 10px;
+    margin-bottom: 11px;
 }
 
 .planner-form label {
     display: block;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 800;
     color: #736b63;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
     text-transform: uppercase;
 }
 
 .planner-form input,
 .planner-form select {
     width: 100%;
-    padding: 9px 12px;
+    padding: 9px 11px;
     border: 2px solid #ded5c8;
     border-radius: 12px;
     font-size: 12.5px;
@@ -533,7 +530,7 @@ body {
 
 .form-row {
     display: flex;
-    gap: 8px;
+    gap: 10px;
 }
 
 .form-row .form-group {
@@ -542,8 +539,8 @@ body {
 
 .form-actions {
     display: flex;
-    gap: 6px;
-    margin-top: 12px;
+    gap: 8px;
+    margin-top: 14px;
 }
 
 .planner-btn {
@@ -573,9 +570,9 @@ body {
     color: #ffffff;
     border: none;
     border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    font-size: 16px;
+    width: 22px;
+    height: 22px;
+    font-size: 15px;
     line-height: 1;
     cursor: pointer;
     display: inline-flex;
@@ -593,8 +590,8 @@ body {
     background-color: #fbf9f6;
     border: 1.5px dashed #ded5c8;
     border-radius: 12px;
-    padding: 9px 12px;
-    margin-top: 6px;
+    padding: 8px 12px;
+    margin-top: 4px;
 }
 
 .goals-vault-list {
@@ -603,7 +600,7 @@ body {
     margin-top: 10px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     padding-right: 4px;
 }
 
@@ -611,14 +608,14 @@ body {
     background-color: #fdfcfb;
     border: 2px solid #ded5c8;
     border-radius: 14px;
-    padding: 10px 12px;
+    padding: 9px 11px;
 }
 
 .goal-header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 800;
     margin-bottom: 4px;
 }
@@ -650,7 +647,7 @@ body {
 
 .action-btn.withdraw {
     color: #b87a2d;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 900;
     line-height: 1;
     width: 18px;
@@ -671,21 +668,21 @@ body {
 
 /* Progress Bars */
 .progress-wrap {
-    margin-top: 6px;
+    margin-top: 5px;
 }
 
 .progress-labels {
     display: flex;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 800;
     color: #7a7168;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 .progress-track {
     width: 100%;
-    height: 10px;
+    height: 9px;
     background-color: #eee7dc;
     border-radius: 10px;
     overflow: hidden;
@@ -709,7 +706,7 @@ body {
 .summary-item {
     display: flex;
     justify-content: space-between;
-    font-size: 12.5px;
+    font-size: 12px;
     color: #6b635b;
     font-weight: 700;
     border-bottom: 1.5px dashed #ede5da;
@@ -724,7 +721,7 @@ body {
 .summary-total {
     border-bottom: none;
     font-weight: 900;
-    font-size: 13.5px;
+    font-size: 13px;
     padding-top: 4px;
 }
 
@@ -754,6 +751,7 @@ body {
     z-index: 9999;
     align-items: center;
     justify-content: center;
+    padding: 16px;
 }
 
 .modal-overlay.active {
@@ -764,8 +762,8 @@ body {
     background: #ffffff;
     border: 2.5px solid #ded5c8;
     border-radius: 20px;
-    padding: 24px;
-    width: 90%;
+    padding: 22px;
+    width: 100%;
     max-width: 380px;
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.15);
 }
@@ -788,6 +786,7 @@ body {
 .table-container::-webkit-scrollbar,
 .goals-vault-list::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
 
 .table-container::-webkit-scrollbar-track,
@@ -801,13 +800,74 @@ body {
     border-radius: 10px;
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
-    .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    .charts-row,
+/* Tablet & Smaller Desktops */
+@media (max-width: 992px) {
     .main-content-row {
         grid-template-columns: 1fr;
+    }
+
+    .charts-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Mobile Screens */
+@media (max-width: 640px) {
+    body {
+        padding: 12px 8px;
+    }
+
+    .planner-app {
+        padding: 20px 14px;
+        border-radius: 20px;
+    }
+
+    .planner-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .header-filter-area {
+        width: 100%;
+    }
+
+    .filter-controls-wrap {
+        width: 100%;
+    }
+
+    .filter-controls {
+        width: 100%;
+    }
+
+    .filter-controls select,
+    .filter-controls input {
+        flex: 1;
+    }
+
+    .main-title {
+        font-size: 26px;
+    }
+
+    .script-title {
+        font-size: 24px;
+    }
+
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .metric-card:last-child {
+        grid-column: span 2;
+    }
+
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .deco-sticker {
+        display: none;
     }
 }
