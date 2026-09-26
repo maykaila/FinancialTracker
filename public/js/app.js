@@ -47,14 +47,21 @@ async function initApp() {
     filterInput.value = `${now.getFullYear()}-${currentMonth}`;
     if (!State.selectedMonthYear) State.selectedMonthYear = filterInput.value;
 
-    const [txData, goalsData] = await Promise.all([
-        API.getTransactions(),
-        API.getGoals()
-    ]);
-    State.transactions = txData || [];
-    State.goals = goalsData || [];
-
-    renderAll();
+    try {
+        const [txData, goalsData] = await Promise.all([
+            API.getTransactions(),
+            API.getGoals()
+        ]);
+        State.transactions = txData || [];
+        State.goals = goalsData || [];
+        renderAll();
+    } catch (error) {
+        console.error('Failed to initialize app data from /api endpoints:', error);
+        State.transactions = [];
+        State.goals = [];
+        renderAll();
+        showAlert('Connection Error', 'Unable to load records right now. Please try again in a moment.');
+    }
 }
 
 // Period Filter Listeners
@@ -334,6 +341,9 @@ document.getElementById('transaction-form').addEventListener('submit', async (e)
         }
         resetTxForm();
         await initApp();
+    } catch (error) {
+        console.error('Transaction submit failed (/api/transactions):', error, payload);
+        showAlert('Save Failed', 'Unable to save transaction. Please check your connection and try again.');
     } finally {
         btn.disabled = false;
     }
@@ -517,4 +527,10 @@ document.getElementById('confirm-delete-btn').addEventListener('click', async ()
     await initApp();
 });
 
-initApp();
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await initApp();
+    } catch (error) {
+        console.error('Unhandled startup error:', error);
+    }
+});

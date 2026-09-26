@@ -1,103 +1,76 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { 
-    getFirestore, 
-    collection, 
-    getDocs, 
-    addDoc, 
-    doc, 
-    updateDoc, 
-    deleteDoc, 
-    query, 
-    where 
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+async function request(url, options = {}) {
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+    };
 
-let db;
+    const response = await fetch(url, { ...options, headers });
+    let payload = null;
 
-// Anonymous Device/User Identity (Ensures each laptop has private data)
-let userId = localStorage.getItem('ft_user_id');
-if (!userId) {
-    userId = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-    localStorage.setItem('ft_user_id', userId);
-}
+    try {
+        payload = await response.json();
+    } catch (_err) {
+        payload = null;
+    }
 
-// Fetch Firebase Configuration Keys dynamically
-async function initFirebase() {
-    if (db) return db;
-    
-    const res = await fetch('/api/config');
-    const firebaseConfig = await res.json();
-    
-    const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    return db;
+    if (!response.ok) {
+        const message = payload?.error || `Request failed (${response.status})`;
+        throw new Error(message);
+    }
+
+    return payload;
 }
 
 export const API = {
     // TRANSACTIONS
     async getTransactions() {
-        const database = await initFirebase();
-        const q = query(
-            collection(database, "transactions"), 
-            where("userId", "==", userId)
-        );
-        const snapshot = await getDocs(q);
-        const list = [];
-        snapshot.forEach(d => list.push({ id: d.id, ...d.data() }));
-        return list.sort((a, b) => new Date(b.date) - new Date(a.date));
+        const data = await request('/api/transactions');
+        return Array.isArray(data) ? data : [];
     },
 
     async addTransaction(data) {
-        const database = await initFirebase();
-        const docRef = await addDoc(collection(database, "transactions"), {
-            ...data,
-            userId,
-            date: new Date().toISOString()
+        return request('/api/transactions', {
+            method: 'POST',
+            body: JSON.stringify(data)
         });
-        return { id: docRef.id, ...data };
     },
 
     async updateTransaction(id, data) {
-        const database = await initFirebase();
-        const ref = doc(database, "transactions", id);
-        await updateDoc(ref, data);
-        return { id, ...data };
+        return request(`/api/transactions/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        });
     },
 
     async deleteTransaction(id) {
-        const database = await initFirebase();
-        await deleteDoc(doc(database, "transactions", id));
-        return { id };
+        return request(`/api/transactions/${id}`, {
+            method: 'DELETE'
+        });
     },
 
     // GOALS
     async getGoals() {
-        const database = await initFirebase();
-        const q = query(collection(database, "goals"), where("userId", "==", userId));
-        const snapshot = await getDocs(q);
-        const list = [];
-        snapshot.forEach(d => list.push({ id: d.id, ...d.data() }));
-        return list;
+        const data = await request('/api/goals');
+        return Array.isArray(data) ? data : [];
     },
 
     async addGoal(data) {
-        const database = await initFirebase();
-        const docRef = await addDoc(collection(database, "goals"), {
-            ...data,
-            userId
+        return request('/api/goals', {
+            method: 'POST',
+            body: JSON.stringify(data)
         });
-        return { id: docRef.id, ...data };
     },
 
     async updateGoal(id, data) {
-        const database = await initFirebase();
-        const ref = doc(database, "goals", id);
-        await updateDoc(ref, data);
-        return { id, ...data };
+        return request(`/api/goals/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        });
     },
 
     async deleteGoal(id) {
-        const database = await initFirebase();
-        await deleteDoc(doc(database, "goals", id));
-        return { id };
+        return request(`/api/goals/${id}`, {
+            method: 'DELETE'
+        });
     }
 };
