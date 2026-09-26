@@ -1,6 +1,13 @@
+let userId = localStorage.getItem('ft_user_id');
+if (!userId) {
+    userId = 'usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+    localStorage.setItem('ft_user_id', userId);
+}
+
 async function request(url, options = {}) {
     const headers = {
         'Content-Type': 'application/json',
+        'x-ft-user-id': userId,
         ...(options.headers || {})
     };
 

@@ -1,25 +1,56 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const fs = require('fs/promises');
+const { initializeApp, getApps } = require('firebase/app');
+const {
+    getFirestore,
+    collection,
+    getDocs,
+    getDoc,
+    addDoc,
+    doc,
+    updateDoc,
+    deleteDoc,
+    query,
+    where
+} = require('firebase/firestore');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, 'data');
-const TRANSACTIONS_PATH = path.join(DATA_DIR, 'transactions.json');
-const GOALS_PATH = path.join(DATA_DIR, 'goals.json');
 
 app.use(express.json());
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-async function readJson(filePath) {
-    const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content || '[]');
+let db;
+
+function getDb() {
+    if (db) return db;
+
+    const firebaseConfig = {
+        apiKey: process.env.FIREBASE_API_KEY,
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.FIREBASE_APP_ID
+    };
+
+    if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.appId) {
+        throw new Error('Missing Firebase environment variables for backend Firestore access');
+    }
+
+    const firebaseApp = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+    db = getFirestore(firebaseApp);
+    return db;
 }
 
-async function writeJson(filePath, data) {
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+function getUserId(req) {
+    const headerId = req.get('x-ft-user-id');
+    if (headerId && String(headerId).trim()) {
+        return String(headerId).trim();
+    }
+    return 'anonymous';
 }
 
 function toAmount(value) {
@@ -27,9 +58,14 @@ function toAmount(value) {
     return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
 }
 
-app.get('/api/transactions', async (_req, res) => {
+app.get('/api/transactions', async (req, res) => {
     try {
-        const transactions = await readJson(TRANSACTIONS_PATH);
+        const database = getDb();
+        const userId = getUserId(req);
+        const q = query(collection(database, 'transactions'), where('userId', '==', userId));
+        const snapshot = await getDocs(q);
+        const transactions = [];
+        snapshot.forEach((txDoc) => transactions.push({ id: txDoc.id, ...txDoc.data() }));
         transactions.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
         res.status(200).json(transactions);
     } catch (error) {
@@ -41,6 +77,7 @@ app.get('/api/transactions', async (_req, res) => {
 app.post('/api/transactions', async (req, res) => {
     try {
         const { description, account, method, amount, goalId = null, isWithdrawal = false } = req.body || {};
+        const userId = getUserId(req);
 
         if (!description || !account || !method || amount === undefined) {
             return res.status(400).json({ error: 'description, account, method, and amount are required' });
@@ -51,21 +88,20 @@ app.post('/api/transactions', async (req, res) => {
             return res.status(400).json({ error: 'amount must be greater than 0' });
         }
 
-        const transactions = await readJson(TRANSACTIONS_PATH);
+        const database = getDb();
         const created = {
-            id: String(Date.now()),
             description: String(description).trim(),
             account,
             method,
             amount: normalizedAmount,
             goalId,
             isWithdrawal: Boolean(isWithdrawal),
+            userId,
             date: new Date().toISOString()
         };
 
-        transactions.unshift(created);
-        await writeJson(TRANSACTIONS_PATH, transactions);
-        res.status(201).json(created);
+        const docRef = await addDoc(collection(database, 'transactions'), created);
+        res.status(201).json({ id: docRef.id, ...created });
     } catch (error) {
         console.error('POST /api/transactions failed:', error);
         res.status(500).json({ error: 'Failed to create transaction' });
@@ -75,10 +111,12 @@ app.post('/api/transactions', async (req, res) => {
 app.patch('/api/transactions/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const transactions = await readJson(TRANSACTIONS_PATH);
-        const idx = transactions.findIndex((tx) => tx.id === id);
+        const database = getDb();
+        const userId = getUserId(req);
+        const ref = doc(database, 'transactions', id);
+        const existing = await getDoc(ref);
 
-        if (idx === -1) {
+        if (!existing.exists() || existing.data().userId !== userId) {
             return res.status(404).json({ error: 'Transaction not found' });
         }
 
@@ -87,13 +125,8 @@ app.patch('/api/transactions/:id', async (req, res) => {
             patch.amount = toAmount(patch.amount);
         }
 
-        transactions[idx] = {
-            ...transactions[idx],
-            ...patch
-        };
-
-        await writeJson(TRANSACTIONS_PATH, transactions);
-        res.status(200).json(transactions[idx]);
+        await updateDoc(ref, patch);
+        res.status(200).json({ id, ...patch });
     } catch (error) {
         console.error('PATCH /api/transactions/:id failed:', error);
         res.status(500).json({ error: 'Failed to update transaction' });
@@ -103,14 +136,16 @@ app.patch('/api/transactions/:id', async (req, res) => {
 app.delete('/api/transactions/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const transactions = await readJson(TRANSACTIONS_PATH);
-        const filtered = transactions.filter((tx) => tx.id !== id);
+        const database = getDb();
+        const userId = getUserId(req);
+        const ref = doc(database, 'transactions', id);
+        const existing = await getDoc(ref);
 
-        if (filtered.length === transactions.length) {
+        if (!existing.exists() || existing.data().userId !== userId) {
             return res.status(404).json({ error: 'Transaction not found' });
         }
 
-        await writeJson(TRANSACTIONS_PATH, filtered);
+        await deleteDoc(ref);
         res.status(200).json({ id });
     } catch (error) {
         console.error('DELETE /api/transactions/:id failed:', error);
@@ -118,9 +153,14 @@ app.delete('/api/transactions/:id', async (req, res) => {
     }
 });
 
-app.get('/api/goals', async (_req, res) => {
+app.get('/api/goals', async (req, res) => {
     try {
-        const goals = await readJson(GOALS_PATH);
+        const database = getDb();
+        const userId = getUserId(req);
+        const q = query(collection(database, 'goals'), where('userId', '==', userId));
+        const snapshot = await getDocs(q);
+        const goals = [];
+        snapshot.forEach((goalDoc) => goals.push({ id: goalDoc.id, ...goalDoc.data() }));
         res.status(200).json(goals);
     } catch (error) {
         console.error('GET /api/goals failed:', error);
@@ -131,6 +171,7 @@ app.get('/api/goals', async (_req, res) => {
 app.post('/api/goals', async (req, res) => {
     try {
         const { name, target, saved = 0 } = req.body || {};
+        const userId = getUserId(req);
         if (!name || target === undefined) {
             return res.status(400).json({ error: 'name and target are required' });
         }
@@ -140,17 +181,16 @@ app.post('/api/goals', async (req, res) => {
             return res.status(400).json({ error: 'target must be greater than 0' });
         }
 
-        const goals = await readJson(GOALS_PATH);
+        const database = getDb();
         const created = {
-            id: String(Date.now()),
             name: String(name).trim(),
             target: normalizedTarget,
-            saved: Math.max(0, toAmount(saved))
+            saved: Math.max(0, toAmount(saved)),
+            userId
         };
 
-        goals.push(created);
-        await writeJson(GOALS_PATH, goals);
-        res.status(201).json(created);
+        const docRef = await addDoc(collection(database, 'goals'), created);
+        res.status(201).json({ id: docRef.id, ...created });
     } catch (error) {
         console.error('POST /api/goals failed:', error);
         res.status(500).json({ error: 'Failed to create goal' });
@@ -160,10 +200,12 @@ app.post('/api/goals', async (req, res) => {
 app.patch('/api/goals/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const goals = await readJson(GOALS_PATH);
-        const idx = goals.findIndex((goal) => goal.id === id);
+        const database = getDb();
+        const userId = getUserId(req);
+        const ref = doc(database, 'goals', id);
+        const existing = await getDoc(ref);
 
-        if (idx === -1) {
+        if (!existing.exists() || existing.data().userId !== userId) {
             return res.status(404).json({ error: 'Goal not found' });
         }
 
@@ -171,13 +213,8 @@ app.patch('/api/goals/:id', async (req, res) => {
         if (patch.target !== undefined) patch.target = toAmount(patch.target);
         if (patch.saved !== undefined) patch.saved = Math.max(0, toAmount(patch.saved));
 
-        goals[idx] = {
-            ...goals[idx],
-            ...patch
-        };
-
-        await writeJson(GOALS_PATH, goals);
-        res.status(200).json(goals[idx]);
+        await updateDoc(ref, patch);
+        res.status(200).json({ id, ...patch });
     } catch (error) {
         console.error('PATCH /api/goals/:id failed:', error);
         res.status(500).json({ error: 'Failed to update goal' });
@@ -187,14 +224,16 @@ app.patch('/api/goals/:id', async (req, res) => {
 app.delete('/api/goals/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const goals = await readJson(GOALS_PATH);
-        const filtered = goals.filter((goal) => goal.id !== id);
+        const database = getDb();
+        const userId = getUserId(req);
+        const ref = doc(database, 'goals', id);
+        const existing = await getDoc(ref);
 
-        if (filtered.length === goals.length) {
+        if (!existing.exists() || existing.data().userId !== userId) {
             return res.status(404).json({ error: 'Goal not found' });
         }
 
-        await writeJson(GOALS_PATH, filtered);
+        await deleteDoc(ref);
         res.status(200).json({ id });
     } catch (error) {
         console.error('DELETE /api/goals/:id failed:', error);
@@ -214,4 +253,8 @@ app.get('/api/config', (req, res) => {
     });
 });
 
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+module.exports = app;
+
+if (require.main === module) {
+    app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+}
