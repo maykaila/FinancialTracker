@@ -14,7 +14,7 @@ body {
     font-family: 'M PLUS Rounded 1c', sans-serif;
     font-weight: 500;
     min-height: 100vh;
-    padding: 24px 15px;
+    padding: 30px 15px;
     display: flex;
     justify-content: center;
     overflow-x: hidden;
@@ -27,10 +27,11 @@ body {
     background-color: #ffffff;
     border: 2.5px solid #ded5c8;
     border-radius: 28px;
-    padding: 30px 24px;
+    padding: 32px 24px;
     box-shadow: 0 12px 36px rgba(90, 75, 60, 0.06);
     position: relative;
-    overflow: hidden;
+    /* Do NOT use overflow: hidden here so tags & stickers can sit on borders */
+    overflow: visible;
 }
 
 /* Header & Brand Area */
@@ -39,7 +40,7 @@ body {
     justify-content: space-between;
     align-items: center;
     position: relative;
-    padding-bottom: 8px;
+    padding-bottom: 12px;
     flex-wrap: wrap;
     gap: 15px;
 }
@@ -180,7 +181,7 @@ body {
     background-image: url('../assets/washi.png');
     background-repeat: repeat-x;
     background-size: auto 100%;
-    margin: 8px 0 22px;
+    margin: 10px 0 24px;
     opacity: 0.85;
 }
 
@@ -234,9 +235,9 @@ body {
 /* 5 Accounts Metric Ribbon */
 .metrics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 28px;
 }
 
 .metric-card {
@@ -245,7 +246,6 @@ body {
     text-align: center;
     border: 2px solid transparent;
     transition: transform 0.15s ease;
-    word-break: break-word;
 }
 
 .metric-card:hover {
@@ -263,8 +263,11 @@ body {
 
 .metric-card h2 {
     font-family: 'Cherry Bomb One', cursive;
-    font-size: 20px;
+    font-size: 19px;
     letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .card-income { background-color: #fcecef; border-color: #f8ccd5; }
@@ -290,25 +293,25 @@ body {
 /* Dashboard Grids */
 .dashboard-row {
     display: grid;
-    gap: 22px;
-    margin-bottom: 24px;
+    gap: 24px;
+    margin-bottom: 28px;
 }
 
 .charts-row {
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: 1fr 1fr;
 }
 
 .main-content-row {
-    grid-template-columns: 1.5fr 1fr;
+    grid-template-columns: 1.55fr 1fr;
     align-items: start;
 }
 
 /* Planner Cards */
 .planner-card {
     background-color: #ffffff;
-    border: 2px solid #ded5c8;
+    border: 2.5px solid #ded5c8;
     border-radius: 20px;
-    padding: 24px 18px 18px;
+    padding: 24px 20px 20px;
     position: relative;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.02);
 }
@@ -323,6 +326,7 @@ body {
     border-radius: 12px;
     letter-spacing: 0.6px;
     border: 2px solid transparent;
+    z-index: 10;
 }
 
 .card-header-flex {
@@ -343,22 +347,19 @@ body {
     position: relative;
     height: 240px;
     width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+}
+
+.chart-box canvas {
+    max-height: 100% !important;
+    width: 100% !important;
 }
 
 /* Table Area */
-.table-card {
-    overflow: hidden;
-}
-
 .table-container {
     max-height: 520px;
     overflow-y: auto;
     overflow-x: auto;
     margin-top: 6px;
-    -webkit-overflow-scrolling: touch;
 }
 
 .planner-table {
@@ -490,7 +491,7 @@ body {
 .sidebar-panels {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
 }
 
 /* Forms */
@@ -800,25 +801,47 @@ body {
     border-radius: 10px;
 }
 
-/* Tablet & Smaller Desktops */
-@media (max-width: 992px) {
-    .main-content-row {
-        grid-template-columns: 1fr;
+/* Breakpoints */
+
+/* Laptops & Standard Desktops (below 1200px) */
+@media (max-width: 1180px) {
+    .metrics-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .metrics-grid .metric-card:nth-child(4),
+    .metrics-grid .metric-card:nth-child(5) {
+        grid-column: span 1;
     }
 
-    .charts-row {
+    .main-content-row {
         grid-template-columns: 1fr;
     }
 }
 
-/* Mobile Screens */
-@media (max-width: 640px) {
+/* Tablets (below 900px) */
+@media (max-width: 900px) {
+    .charts-row {
+        grid-template-columns: 1fr;
+    }
+
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .metrics-grid .metric-card:last-child {
+        grid-column: span 2;
+    }
+}
+
+/* Mobile Screens (below 600px) */
+@media (max-width: 600px) {
     body {
         padding: 12px 8px;
     }
 
     .planner-app {
-        padding: 20px 14px;
+        padding: 24px 14px;
         border-radius: 20px;
     }
 
@@ -854,11 +877,11 @@ body {
     }
 
     .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr 1fr;
         gap: 8px;
     }
 
-    .metric-card:last-child {
+    .metrics-grid .metric-card:last-child {
         grid-column: span 2;
     }
 
