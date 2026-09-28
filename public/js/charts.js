@@ -1,18 +1,21 @@
-const ChartManager = {
-    allocationChart: null,
-    comparisonChart: null,
-    palette: ['#df6d82', '#557d62', '#e5a95d', '#8b69aa', '#5b8eac'],
+// Example inside public/js/charts.js
+const allocationCtx = document.getElementById('allocationChart')?.getContext('2d');
+const comparisonCtx = document.getElementById('comparisonChart')?.getContext('2d');
 
-    init(totals) {
-        // 1. Account Breakdown
-        const ctx1 = document.getElementById('allocationChart').getContext('2d');
-        this.allocationChart = new Chart(ctx1, {
+let allocationChartInstance = null;
+let comparisonChartInstance = null;
+
+window.ChartManager = {
+    init() {
+        if (!allocationCtx || !comparisonCtx || typeof Chart === 'undefined') return;
+
+        allocationChartInstance = new Chart(allocationCtx, {
             type: 'doughnut',
             data: {
                 labels: ['Income', 'Spending', 'Savings', 'Investments', 'Protection'],
                 datasets: [{
-                    data: [totals.income, totals.spending, totals.savings, totals.investments, totals.protection],
-                    backgroundColor: this.palette,
+                    data: [0, 0, 0, 0, 0],
+                    backgroundColor: ['#e27289', '#557d62', '#c98a3b', '#8b5db3', '#4988bd'],
                     borderWidth: 2,
                     borderColor: '#ffffff'
                 }]
@@ -20,41 +23,46 @@ const ChartManager = {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: { duration: 300 },
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: { font: { family: 'M PLUS Rounded 1c', weight: '700', size: 10.5 }, color: '#4a423a' }
+                        labels: {
+                            boxWidth: 12,
+                            font: { family: "'M PLUS Rounded 1c', sans-serif", weight: '700', size: 10 }
+                        }
                     }
-                }
+                },
+                cutout: '65%'
             }
         });
 
-        // 2. Income vs Spending
-        const ctx2 = document.getElementById('comparisonChart').getContext('2d');
-        this.comparisonChart = new Chart(ctx2, {
+        comparisonChartInstance = new Chart(comparisonCtx, {
             type: 'bar',
             data: {
-                labels: ['Total Income', 'Total Spending'],
+                labels: ['Income', 'Spending'],
                 datasets: [{
-                    data: [totals.income, totals.spending],
-                    backgroundColor: ['#557d62', '#df6d82'],
-                    borderRadius: 6
+                    data: [0, 0],
+                    backgroundColor: ['#e27289', '#557d62'],
+                    borderRadius: 8
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: { duration: 300 },
-                plugins: { legend: { display: false } },
+                plugins: {
+                    legend: { display: false }
+                },
                 scales: {
                     y: {
-                        ticks: { color: '#7d756d', font: { family: 'M PLUS Rounded 1c', weight: '700', size: 10 }, callback: v => '₱' + v },
-                        grid: { color: '#f2ede4' }
+                        beginAtZero: true,
+                        ticks: {
+                            font: { family: "'M PLUS Rounded 1c', sans-serif", size: 10 }
+                        }
                     },
                     x: {
-                        ticks: { color: '#4a423a', font: { family: 'M PLUS Rounded 1c', weight: '700', size: 10 } },
-                        grid: { display: false }
+                        ticks: {
+                            font: { family: "'M PLUS Rounded 1c', sans-serif", weight: '700', size: 10 }
+                        }
                     }
                 }
             }
@@ -62,14 +70,28 @@ const ChartManager = {
     },
 
     update(totals) {
-        if (!this.allocationChart || !this.comparisonChart) return this.init(totals);
+        if (!allocationChartInstance || !comparisonChartInstance) {
+            this.init();
+        }
 
-        this.allocationChart.data.datasets[0].data = [
-            totals.income, totals.spending, totals.savings, totals.investments, totals.protection
-        ];
-        this.allocationChart.update();
+        if (allocationChartInstance) {
+            allocationChartInstance.data.datasets[0].data = [
+                totals.income || 0,
+                totals.spending || 0,
+                totals.savings || 0,
+                totals.investments || 0,
+                totals.protection || 0
+            ];
+            allocationChartInstance.update();
+        }
 
-        this.comparisonChart.data.datasets[0].data = [totals.income, totals.spending];
-        this.comparisonChart.update();
+        if (comparisonChartInstance) {
+            const outflow = (totals.spending || 0) + (totals.savings || 0) + (totals.investments || 0) + (totals.protection || 0);
+            comparisonChartInstance.data.datasets[0].data = [totals.income || 0, outflow];
+            comparisonChartInstance.update();
+        }
     }
 };
+
+// Initialize as soon as script evaluates
+window.ChartManager.init();

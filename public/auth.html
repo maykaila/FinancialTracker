@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome - Money Planner</title>
+    <link rel="icon" type="image/png" href="assets/star.png">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+    <div class="auth-container">
+        <!-- Brand Header -->
+        <div class="brand-area">
+            <img src="assets/moneyspread.png" class="brand-logo" alt="Money Cat Logo" />
+            <div class="title-area">
+                <h1 class="main-title">MONEY <span class="script-title">Planner</span></h1>
+                <p class="tagline">A little progress each day adds up to big results ✧</p>
+            </div>
+        </div>
+
+        <div class="washi-divider"></div>
+
+        <!-- Auth Card -->
+        <div class="auth-card">
+            <!-- Decorative Tag -->
+            <div class="card-tag tag-pink" id="auth-tag">WELCOME BACK</div>
+
+            <!-- Tab Switcher -->
+            <div class="auth-tabs">
+                <button type="button" class="tab-btn active" id="tab-login" onclick="switchAuthMode('login')">Log In</button>
+                <button type="button" class="tab-btn" id="tab-signup" onclick="switchAuthMode('signup')">Sign Up</button>
+            </div>
+
+            <!-- Auth Form -->
+            <form id="auth-form" class="planner-form" novalidate>
+                <div class="form-group" id="name-field-group" style="display: none;">
+                    <label for="auth-name">Your Name / Nickname</label>
+                    <input type="text" id="auth-name" placeholder="e.g. username123" maxlength="30">
+                </div>
+
+                <div class="form-group">
+                    <label for="auth-email">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="auth-email" 
+                        placeholder="name@example.com" 
+                        autocomplete="email"
+                        required>
+                </div>
+
+                <div class="form-group">
+                    <label for="auth-password">Password</label>
+                    <input 
+                        type="password" 
+                        id="auth-password" 
+                        placeholder="At least 6 characters" 
+                        minlength="6" 
+                        maxlength="64"
+                        autocomplete="current-password"
+                        required>
+                </div>
+
+                <p id="auth-error-msg" class="auth-error-msg" style="display: none;"></p>
+
+                <button type="submit" id="auth-submit-btn" class="planner-btn btn-primary">Log In ♡</button>
+            </form>
+
+            <div class="auth-footer">
+                <p id="auth-toggle-prompt">Don't have an account yet? <a href="javascript:void(0)" onclick="switchAuthMode('signup')">Sign up here</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Script Logic -->
+    <script type="module" src="js/auth.js"></script>
+</body>
+</html>

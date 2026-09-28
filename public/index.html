@@ -32,7 +32,20 @@
                         <input type="month" id="month-year-filter" style="display: none;">
                     </div>
                 </div>
+
+                <!-- User Auth Profile & Logout -->
+                <div class="user-profile-badge">
+                    <span id="user-display-name">Loading...</span>
+                    <button type="button" id="logout-btn" class="planner-btn-logout" title="Log Out" aria-label="Log Out">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
             </div>
+
         </header>
 
         <!-- Repeating Washi Tape Divider -->
@@ -187,7 +200,7 @@
                         </div>
 
                         <div class="form-actions">
-                            <button type="submit" id="tx-submit-btn" class="planner-btn btn-primary">Save Entry ♡</button>
+                            <button type="submit" id="tx-submit-btn" class="planner-btn btn-primary">Save Entry </button>
                             <button type="button" id="tx-cancel-btn" class="planner-btn btn-secondary" style="display: none;">Cancel</button>
                         </div>
                     </form>
@@ -226,7 +239,7 @@
     <!-- Add Goal Modal -->
     <div id="add-goal-modal" class="modal-overlay">
         <div class="modal-dialog">
-            <h3>Add New Savings Goal ♡</h3>
+            <h3>Add New Savings Goal</h3>
             <form id="add-goal-form" class="planner-form">
                 <div class="form-group">
                     <label for="new-goal-name">Goal Name</label>
@@ -315,10 +328,22 @@
     <!-- Alert Modal -->
     <div id="alert-modal" class="modal-overlay">
         <div class="modal-dialog">
-            <h3 id="alert-modal-title">Notice ♡</h3>
+            <h3 id="alert-modal-title">Notice</h3>
             <p id="alert-modal-msg" style="margin: 12px 0 16px; font-size: 13.5px; color: #6b635b;"></p>
             <div class="modal-actions">
                 <button type="button" class="planner-btn btn-primary" onclick="closeModal('alert-modal')">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div id="logout-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <h3>Log Out</h3>
+            <p id="logout-modal-msg" style="margin: 12px 0 16px; font-size: 13.5px; color: #6b635b;">Are you sure you want to log out of your session?</p>
+            <div class="modal-actions">
+                <button type="button" class="planner-btn btn-secondary" onclick="closeModal('logout-modal')">Cancel</button>
+                <button type="button" id="confirm-logout-btn" class="planner-btn btn-danger">Log Out</button>
             </div>
         </div>
     </div>

@@ -97,6 +97,98 @@ body {
     letter-spacing: 0.3px;
 }
 
+/* Header Controls Area (Filter & Profile Group) */
+.header-filter-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.filter-controls-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.filter-controls-wrap label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #8c8278;
+    letter-spacing: 0.6px;
+}
+
+.filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.header-filter-area select,
+.header-filter-area input[type="month"] {
+    padding: 7px 12px;
+    border: 2px solid #ded5c8;
+    border-radius: 12px;
+    font-size: 12px;
+    background-color: #fcfbf9;
+    color: #4a423a;
+    font-weight: 800;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.header-filter-area select:focus,
+.header-filter-area input[type="month"]:focus {
+    border-color: #df6d82;
+    background-color: #ffffff;
+}
+
+/* User Auth Profile Badge */
+.user-profile-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #fcfbf9;
+    border: 2px solid #ded5c8;
+    padding: 5px 8px 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #4a423a;
+    height: 35px;
+}
+
+/* Circular Icon Logout Button */
+.planner-btn-logout {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background-color: #fcecef;
+    border: 1.5px solid #f8ccd5;
+    border-radius: 50%;
+    color: #c44f67;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.planner-btn-logout:hover {
+    background-color: #f8ccd5;
+    color: #a0283e;
+    transform: scale(1.1);
+}
+
+.planner-btn-logout svg {
+    display: block;
+    stroke: currentColor;
+    margin-left: 1px;
+}
+
 /* Indie Web Stickers */
 @keyframes stickerWiggle {
     0%   { transform: rotate(var(--rot, 0deg)) scale(1); }
@@ -182,53 +274,6 @@ body {
     background-size: auto 100%;
     margin: 10px 0 24px;
     opacity: 0.85;
-}
-
-/* Header Filter Area */
-.header-filter-area {
-    display: flex;
-    align-items: center;
-}
-
-.filter-controls-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.filter-controls-wrap label {
-    font-size: 10px;
-    font-weight: 800;
-    color: #8c8278;
-    letter-spacing: 0.6px;
-}
-
-.filter-controls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.header-filter-area select,
-.header-filter-area input[type="month"] {
-    padding: 7px 12px;
-    border: 2px solid #ded5c8;
-    border-radius: 12px;
-    font-size: 12px;
-    background-color: #fcfbf9;
-    color: #4a423a;
-    font-weight: 800;
-    font-family: inherit;
-    outline: none;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.header-filter-area select:focus,
-.header-filter-area input[type="month"]:focus {
-    border-color: #df6d82;
-    background-color: #ffffff;
 }
 
 /* Top 5 Metrics Grid */
@@ -346,11 +391,13 @@ body {
     position: relative;
     height: 240px;
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .chart-box canvas {
-    max-height: 100% !important;
-    width: 100% !important;
+    display: block;
 }
 
 /* Table Area */
@@ -363,7 +410,7 @@ body {
     overflow-y: auto;
     overflow-x: auto;
     margin-top: 6px;
-    padding-bottom: 60px; /* Space for kebab menu dropdown to expand without clipping */
+    padding-bottom: 60px;
 }
 
 .planner-table {
@@ -479,7 +526,6 @@ body {
     overflow: hidden;
 }
 
-/* Bridge buffer to prevent cursor dropouts */
 .kebab-dropdown::before {
     content: '';
     position: absolute;
@@ -836,9 +882,9 @@ body {
     border-radius: 10px;
 }
 
-/* Responsive Media Queries */
+/* Breakpoints */
 
-/* Laptops & Standard Desktops (below 1200px) */
+/* Laptops & Standard Desktops (below 1180px) */
 @media (max-width: 1180px) {
     .metrics-grid {
         grid-template-columns: repeat(3, 1fr);
@@ -882,12 +928,19 @@ body {
 
     .planner-header {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
         gap: 12px;
+    }
+
+    .brand-area {
+        justify-content: flex-start;
     }
 
     .header-filter-area {
         width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
     }
 
     .filter-controls-wrap {
@@ -901,6 +954,11 @@ body {
     .filter-controls select,
     .filter-controls input {
         flex: 1;
+    }
+
+    .user-profile-badge {
+        width: 100%;
+        justify-content: space-between;
     }
 
     .main-title {

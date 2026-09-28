@@ -1,4 +1,60 @@
 import { API } from './api.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+
+let currentUser = null;
+
+// Initialize Auth & Protect Route
+async function initAuthProtection() {
+    try {
+        const res = await fetch('/api/config');
+        const config = await res.json();
+        const app = initializeApp(config);
+        const auth = getAuth(app);
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                // Not authenticated -> kick to auth page
+                window.location.href = '/auth.html';
+                return;
+            }
+
+            currentUser = user;
+            API.setUserId(user.uid);
+
+            // Update user badge in header
+            const userNameEl = document.getElementById('user-display-name');
+            if (userNameEl) {
+                userNameEl.textContent = user.displayName || user.email.split('@')[0];
+            }
+
+            // Bind logout modal triggers
+            const logoutBtn = document.getElementById('logout-btn');
+            const confirmLogoutBtn = document.getElementById('confirm-logout-btn');
+
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    openModal('logout-modal');
+                });
+            }
+
+            if (confirmLogoutBtn) {
+                confirmLogoutBtn.addEventListener('click', async () => {
+                    closeModal('logout-modal');
+                    await signOut(auth);
+                    window.location.href = '/auth.html';
+                });
+            }
+
+            // Load app data for this specific user
+            await initApp();
+        });
+    } catch (err) {
+        console.error("Auth guard error:", err);
+    }
+}
+
+initAuthProtection();
 
 const State = {
     transactions: [],
@@ -39,13 +95,15 @@ async function initApp() {
     const periodModeSelect = document.getElementById('period-mode-select');
     const filterInput = document.getElementById('month-year-filter');
 
-    if (!State.filterMode) State.filterMode = 'all';
-    periodModeSelect.value = State.filterMode;
+    if (periodModeSelect && !State.filterMode) State.filterMode = 'all';
+    if (periodModeSelect) periodModeSelect.value = State.filterMode;
 
     const now = new Date();
     const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-    filterInput.value = `${now.getFullYear()}-${currentMonth}`;
-    if (!State.selectedMonthYear) State.selectedMonthYear = filterInput.value;
+    if (filterInput) {
+        filterInput.value = `${now.getFullYear()}-${currentMonth}`;
+        if (!State.selectedMonthYear) State.selectedMonthYear = filterInput.value;
+    }
 
     try {
         const [txData, goalsData] = await Promise.all([
@@ -56,7 +114,7 @@ async function initApp() {
         State.goals = goalsData || [];
         renderAll();
     } catch (error) {
-        console.error('Failed to initialize app data from /api endpoints:', error);
+        console.error('Failed to initialize app data from API:', error);
         State.transactions = [];
         State.goals = [];
         renderAll();
@@ -65,24 +123,30 @@ async function initApp() {
 }
 
 // Period Filter Listeners
-document.getElementById('period-mode-select').addEventListener('change', (e) => {
-    State.filterMode = e.target.value;
-    const filterInput = document.getElementById('month-year-filter');
+const periodSelect = document.getElementById('period-mode-select');
+if (periodSelect) {
+    periodSelect.addEventListener('change', (e) => {
+        State.filterMode = e.target.value;
+        const filterInput = document.getElementById('month-year-filter');
 
-    if (State.filterMode === 'month') {
-        filterInput.style.display = 'inline-block';
-        State.selectedMonthYear = filterInput.value;
-    } else {
-        filterInput.style.display = 'none';
-        State.selectedMonthYear = '';
-    }
-    renderAll();
-});
+        if (State.filterMode === 'month') {
+            filterInput.style.display = 'inline-block';
+            State.selectedMonthYear = filterInput.value;
+        } else {
+            filterInput.style.display = 'none';
+            State.selectedMonthYear = '';
+        }
+        renderAll();
+    });
+}
 
-document.getElementById('month-year-filter').addEventListener('change', (e) => {
-    State.selectedMonthYear = e.target.value;
-    renderAll();
-});
+const monthFilter = document.getElementById('month-year-filter');
+if (monthFilter) {
+    monthFilter.addEventListener('change', (e) => {
+        State.selectedMonthYear = e.target.value;
+        renderAll();
+    });
+}
 
 function renderAll() {
     renderTransactions();
@@ -92,6 +156,7 @@ function renderAll() {
 
 function renderTransactions() {
     const tbody = document.getElementById('transaction-tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
     const totals = { income: 0, spending: 0, savings: 0, investments: 0, protection: 0 };
@@ -165,11 +230,14 @@ function renderTransactions() {
         balanceRow.classList.add('balance-positive');
     }
 
-    ChartManager.update(totals);
+    if (window.ChartManager && typeof ChartManager.update === 'function') {
+        ChartManager.update(totals);
+    }
 }
 
 function renderGoals() {
     const container = document.getElementById('goals-list-container');
+    if (!container) return;
     container.innerHTML = '';
 
     let totalTarget = 0;
@@ -216,12 +284,15 @@ function renderGoals() {
     }
 
     const overallPercent = totalTarget > 0 ? Math.min(100, Math.round((totalSaved / totalTarget) * 100)) : 0;
-    document.getElementById('all-goals-bar').style.width = `${overallPercent}%`;
-    document.getElementById('all-goals-percent').textContent = `${overallPercent}% (${Utils.formatCurrency(totalSaved)} / ${Utils.formatCurrency(totalTarget)})`;
+    const bar = document.getElementById('all-goals-bar');
+    const label = document.getElementById('all-goals-percent');
+    if (bar) bar.style.width = `${overallPercent}%`;
+    if (label) label.textContent = `${overallPercent}% (${Utils.formatCurrency(totalSaved)} / ${Utils.formatCurrency(totalTarget)})`;
 }
 
 function populateGoalDropdown() {
     const select = document.getElementById('savings-goal-select');
+    if (!select) return;
     select.innerHTML = '<option value="">-- Choose a Goal Vault --</option>';
     State.goals.forEach(g => {
         const opt = document.createElement('option');
@@ -232,11 +303,14 @@ function populateGoalDropdown() {
 }
 
 // UI Dropdowns & Kebab Actions
-document.getElementById('account').addEventListener('change', (e) => {
-    const group = document.getElementById('savings-goal-select-group');
-    group.style.display = e.target.value === 'savings' ? 'block' : 'none';
-    if (e.target.value !== 'savings') document.getElementById('savings-goal-select').value = '';
-});
+const accountSelect = document.getElementById('account');
+if (accountSelect) {
+    accountSelect.addEventListener('change', (e) => {
+        const group = document.getElementById('savings-goal-select-group');
+        group.style.display = e.target.value === 'savings' ? 'block' : 'none';
+        if (e.target.value !== 'savings') document.getElementById('savings-goal-select').value = '';
+    });
+}
 
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.kebab-container')) {
@@ -249,105 +323,109 @@ window.toggleKebab = (e, id) => {
     document.querySelectorAll('.kebab-dropdown.show').forEach(d => {
         if (d.id !== `kebab-${id}`) d.classList.remove('show');
     });
-    document.getElementById(`kebab-${id}`).classList.toggle('show');
+    const target = document.getElementById(`kebab-${id}`);
+    if (target) target.classList.toggle('show');
 };
 
-// Main Transaction Form Submit with Goal Synchronization
-document.getElementById('transaction-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('tx-submit-btn');
-    const accountVal = document.getElementById('account').value;
-    const selectedGoalId = document.getElementById('savings-goal-select').value;
-    const amountVal = Utils.sanitizeNumber(document.getElementById('amount').value);
+// Main Transaction Form Submit
+const txForm = document.getElementById('transaction-form');
+if (txForm) {
+    txForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('tx-submit-btn');
+        const accountVal = document.getElementById('account').value;
+        const selectedGoalId = document.getElementById('savings-goal-select').value;
+        const amountVal = Utils.sanitizeNumber(document.getElementById('amount').value);
 
-    if (amountVal <= 0) {
-        showAlert('Invalid Amount', 'Please enter an amount greater than ₱0.00.');
-        return;
-    }
-
-    if (accountVal === 'savings') {
-        if (State.goals.length === 0) {
-            showAlert('No Existing Goals', 'You do not have any active Savings Goals. Please create a goal vault first.');
+        if (amountVal <= 0) {
+            showAlert('Invalid Amount', 'Please enter an amount greater than ₱0.00.');
             return;
         }
-        if (!selectedGoalId) {
-            showAlert('No Goal Chosen', 'Please select which savings goal vault you would like to allocate this deposit to.');
-            return;
-        }
-    }
 
-    btn.disabled = true;
-    const editId = document.getElementById('edit-tx-id').value;
-    const payload = {
-        description: document.getElementById('description').value.trim(),
-        account: accountVal,
-        method: document.getElementById('method').value,
-        amount: amountVal,
-        goalId: selectedGoalId || null
-    };
-
-    try {
-        if (editId) {
-            const oldTx = State.transactions.find(t => t.id === editId);
-
-            // Revert old transaction's impact on goal vault
-            if (oldTx && oldTx.goalId) {
-                const oldGoal = State.goals.find(g => g.id === oldTx.goalId);
-                if (oldGoal) {
-                    let revertedSaved = Utils.sanitizeNumber(oldGoal.saved);
-                    const oldAmount = Utils.sanitizeNumber(oldTx.amount);
-
-                    if (oldTx.account === 'savings') {
-                        revertedSaved = Math.max(0, Utils.sub(revertedSaved, oldAmount));
-                    } else if (oldTx.isWithdrawal || oldTx.account === 'spending') {
-                        revertedSaved = Utils.add(revertedSaved, oldAmount);
-                    }
-                    await API.updateGoal(oldGoal.id, { saved: revertedSaved });
-                }
+        if (accountVal === 'savings') {
+            if (State.goals.length === 0) {
+                showAlert('No Existing Goals', 'You do not have any active Savings Goals. Please create a goal vault first.');
+                return;
             }
-
-            if (oldTx && oldTx.isWithdrawal && payload.account === 'spending') {
-                payload.isWithdrawal = true;
-            }
-
-            await API.updateTransaction(editId, payload);
-
-            // Apply new transaction's impact on goal vault
-            if (payload.goalId) {
-                const newGoal = State.goals.find(g => g.id === payload.goalId);
-                if (newGoal) {
-                    let currentSaved = Utils.sanitizeNumber(newGoal.saved);
-                    if (oldTx && oldTx.goalId === payload.goalId) {
-                        if (oldTx.account === 'savings') currentSaved = Math.max(0, Utils.sub(currentSaved, oldTx.amount));
-                        if (oldTx.isWithdrawal || oldTx.account === 'spending') currentSaved = Utils.add(currentSaved, oldTx.amount);
-                    }
-
-                    if (accountVal === 'savings') {
-                        currentSaved = Utils.add(currentSaved, amountVal);
-                    } else if (payload.isWithdrawal || accountVal === 'spending') {
-                        currentSaved = Math.max(0, Utils.sub(currentSaved, amountVal));
-                    }
-                    await API.updateGoal(newGoal.id, { saved: currentSaved });
-                }
-            }
-        } else {
-            await API.addTransaction(payload);
-            if (accountVal === 'savings' && selectedGoalId) {
-                const goal = State.goals.find(g => g.id === selectedGoalId);
-                if (goal) {
-                    await API.updateGoal(goal.id, { saved: Utils.add(goal.saved || 0, amountVal) });
-                }
+            if (!selectedGoalId) {
+                showAlert('No Goal Chosen', 'Please select which savings goal vault you would like to allocate this deposit to.');
+                return;
             }
         }
-        resetTxForm();
-        await initApp();
-    } catch (error) {
-        console.error('Transaction submit failed (/api/transactions):', error, payload);
-        showAlert('Save Failed', 'Unable to save transaction. Please check your connection and try again.');
-    } finally {
-        btn.disabled = false;
-    }
-});
+
+        btn.disabled = true;
+        const editId = document.getElementById('edit-tx-id').value;
+        const payload = {
+            description: document.getElementById('description').value.trim(),
+            account: accountVal,
+            method: document.getElementById('method').value,
+            amount: amountVal,
+            goalId: selectedGoalId || null
+        };
+
+        try {
+            if (editId) {
+                const oldTx = State.transactions.find(t => t.id === editId);
+
+                // Revert old transaction's impact on goal vault
+                if (oldTx && oldTx.goalId) {
+                    const oldGoal = State.goals.find(g => g.id === oldTx.goalId);
+                    if (oldGoal) {
+                        let revertedSaved = Utils.sanitizeNumber(oldGoal.saved);
+                        const oldAmount = Utils.sanitizeNumber(oldTx.amount);
+
+                        if (oldTx.account === 'savings') {
+                            revertedSaved = Math.max(0, Utils.sub(revertedSaved, oldAmount));
+                        } else if (oldTx.isWithdrawal || oldTx.account === 'spending') {
+                            revertedSaved = Utils.add(revertedSaved, oldAmount);
+                        }
+                        await API.updateGoal(oldGoal.id, { saved: revertedSaved });
+                    }
+                }
+
+                if (oldTx && oldTx.isWithdrawal && payload.account === 'spending') {
+                    payload.isWithdrawal = true;
+                }
+
+                await API.updateTransaction(editId, payload);
+
+                // Apply new transaction's impact on goal vault
+                if (payload.goalId) {
+                    const newGoal = State.goals.find(g => g.id === payload.goalId);
+                    if (newGoal) {
+                        let currentSaved = Utils.sanitizeNumber(newGoal.saved);
+                        if (oldTx && oldTx.goalId === payload.goalId) {
+                            if (oldTx.account === 'savings') currentSaved = Math.max(0, Utils.sub(currentSaved, oldTx.amount));
+                            if (oldTx.isWithdrawal || oldTx.account === 'spending') currentSaved = Utils.add(currentSaved, oldTx.amount);
+                        }
+
+                        if (accountVal === 'savings') {
+                            currentSaved = Utils.add(currentSaved, amountVal);
+                        } else if (payload.isWithdrawal || accountVal === 'spending') {
+                            currentSaved = Math.max(0, Utils.sub(currentSaved, amountVal));
+                        }
+                        await API.updateGoal(newGoal.id, { saved: currentSaved });
+                    }
+                }
+            } else {
+                await API.addTransaction(payload);
+                if (accountVal === 'savings' && selectedGoalId) {
+                    const goal = State.goals.find(g => g.id === selectedGoalId);
+                    if (goal) {
+                        await API.updateGoal(goal.id, { saved: Utils.add(goal.saved || 0, amountVal) });
+                    }
+                }
+            }
+            resetTxForm();
+            await initApp();
+        } catch (error) {
+            console.error('Transaction submit failed:', error);
+            showAlert('Save Failed', 'Unable to save transaction. Please check your connection and try again.');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+}
 
 window.startEditTx = (id) => {
     const tx = State.transactions.find(t => t.id === id);
@@ -376,30 +454,37 @@ function resetTxForm() {
     document.getElementById('tx-submit-btn').textContent = 'Save Entry ♡';
     document.getElementById('tx-cancel-btn').style.display = 'none';
 }
-document.getElementById('tx-cancel-btn').addEventListener('click', resetTxForm);
+
+const cancelBtn = document.getElementById('tx-cancel-btn');
+if (cancelBtn) cancelBtn.addEventListener('click', resetTxForm);
 
 // Add Goal Form
-document.getElementById('open-add-goal-btn').addEventListener('click', () => openModal('add-goal-modal'));
-document.getElementById('add-goal-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const target = Utils.sanitizeNumber(document.getElementById('new-goal-target').value);
-    const saved = Utils.sanitizeNumber(document.getElementById('new-goal-saved').value);
+const addGoalBtn = document.getElementById('open-add-goal-btn');
+if (addGoalBtn) addGoalBtn.addEventListener('click', () => openModal('add-goal-modal'));
 
-    if (target <= 0) {
-        showAlert('Invalid Target', 'Goal target amount must be greater than ₱0.00.');
-        return;
-    }
+const addGoalForm = document.getElementById('add-goal-form');
+if (addGoalForm) {
+    addGoalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const target = Utils.sanitizeNumber(document.getElementById('new-goal-target').value);
+        const saved = Utils.sanitizeNumber(document.getElementById('new-goal-saved').value);
 
-    const payload = {
-        name: document.getElementById('new-goal-name').value.trim(),
-        target,
-        saved: Math.max(0, saved)
-    };
-    await API.addGoal(payload);
-    document.getElementById('add-goal-form').reset();
-    closeModal('add-goal-modal');
-    await initApp();
-});
+        if (target <= 0) {
+            showAlert('Invalid Target', 'Goal target amount must be greater than ₱0.00.');
+            return;
+        }
+
+        const payload = {
+            name: document.getElementById('new-goal-name').value.trim(),
+            target,
+            saved: Math.max(0, saved)
+        };
+        await API.addGoal(payload);
+        document.getElementById('add-goal-form').reset();
+        closeModal('add-goal-modal');
+        await initApp();
+    });
+}
 
 // Edit Goal Target
 window.openEditGoalTarget = (id) => {
@@ -411,20 +496,23 @@ window.openEditGoalTarget = (id) => {
     openModal('edit-goal-modal');
 };
 
-document.getElementById('edit-goal-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const id = document.getElementById('edit-goal-id').value;
-    const target = Utils.sanitizeNumber(document.getElementById('edit-goal-target').value);
+const editGoalForm = document.getElementById('edit-goal-form');
+if (editGoalForm) {
+    editGoalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('edit-goal-id').value;
+        const target = Utils.sanitizeNumber(document.getElementById('edit-goal-target').value);
 
-    if (target <= 0) {
-        showAlert('Invalid Target', 'Goal target must be greater than ₱0.00.');
-        return;
-    }
+        if (target <= 0) {
+            showAlert('Invalid Target', 'Goal target must be greater than ₱0.00.');
+            return;
+        }
 
-    await API.updateGoal(id, { target });
-    closeModal('edit-goal-modal');
-    await initApp();
-});
+        await API.updateGoal(id, { target });
+        closeModal('edit-goal-modal');
+        await initApp();
+    });
+}
 
 // Withdraw from Goal
 window.openWithdrawGoalModal = (id) => {
@@ -439,47 +527,48 @@ window.openWithdrawGoalModal = (id) => {
     openModal('withdraw-goal-modal');
 };
 
-document.getElementById('withdraw-goal-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const id = document.getElementById('withdraw-goal-id').value;
-    const goal = State.goals.find(g => g.id === id);
-    if (!goal) return;
+const withdrawGoalForm = document.getElementById('withdraw-goal-form');
+if (withdrawGoalForm) {
+    withdrawGoalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('withdraw-goal-id').value;
+        const goal = State.goals.find(g => g.id === id);
+        if (!goal) return;
 
-    const amountToWithdraw = Utils.sanitizeNumber(document.getElementById('withdraw-amount').value);
-    const method = document.getElementById('withdraw-method').value;
-    const reason = document.getElementById('withdraw-reason').value.trim();
-    const currentSaved = Utils.sanitizeNumber(goal.saved);
+        const amountToWithdraw = Utils.sanitizeNumber(document.getElementById('withdraw-amount').value);
+        const method = document.getElementById('withdraw-method').value;
+        const reason = document.getElementById('withdraw-reason').value.trim();
+        const currentSaved = Utils.sanitizeNumber(goal.saved);
 
-    if (amountToWithdraw <= 0) {
-        showAlert('Invalid Amount', 'Withdrawal amount must be greater than ₱0.00.');
-        return;
-    }
+        if (amountToWithdraw <= 0) {
+            showAlert('Invalid Amount', 'Withdrawal amount must be greater than ₱0.00.');
+            return;
+        }
 
-    if (amountToWithdraw > currentSaved) {
-        showAlert('Insufficient Vault Funds', `This vault only has ${Utils.formatCurrency(currentSaved)} available.`);
-        return;
-    }
+        if (amountToWithdraw > currentSaved) {
+            showAlert('Insufficient Vault Funds', `This vault only has ${Utils.formatCurrency(currentSaved)} available.`);
+            return;
+        }
 
-    // Decrement Goal Vault
-    const newSaved = Math.max(0, Utils.sub(currentSaved, amountToWithdraw));
-    await API.updateGoal(goal.id, { saved: newSaved });
+        const newSaved = Math.max(0, Utils.sub(currentSaved, amountToWithdraw));
+        await API.updateGoal(goal.id, { saved: newSaved });
 
-    // Auto-log as spending with isWithdrawal tag
-    await API.addTransaction({
-        description: reason || `Spent from ${goal.name}`,
-        account: 'spending',
-        method: method,
-        amount: amountToWithdraw,
-        goalId: goal.id,
-        isWithdrawal: true
+        await API.addTransaction({
+            description: reason || `Spent from ${goal.name}`,
+            account: 'spending',
+            method: method,
+            amount: amountToWithdraw,
+            goalId: goal.id,
+            isWithdrawal: true
+        });
+
+        document.getElementById('withdraw-goal-form').reset();
+        closeModal('withdraw-goal-modal');
+        await initApp();
     });
+}
 
-    document.getElementById('withdraw-goal-form').reset();
-    closeModal('withdraw-goal-modal');
-    await initApp();
-});
-
-// Delete Record Handling with Goal Vault Refund & Cascading
+// Delete Record Handling
 window.promptDelete = (type, id) => {
     State.pendingDelete = { type, id };
     document.getElementById('delete-modal-msg').textContent =
@@ -487,50 +576,42 @@ window.promptDelete = (type, id) => {
     openModal('delete-modal');
 };
 
-document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
-    const { type, id } = State.pendingDelete;
+const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+if (confirmDeleteBtn) {
+    confirmDeleteBtn.addEventListener('click', async () => {
+        const { type, id } = State.pendingDelete;
 
-    if (type === 'tx') {
-        const txToDelete = State.transactions.find(t => t.id === id);
+        if (type === 'tx') {
+            const txToDelete = State.transactions.find(t => t.id === id);
 
-        if (txToDelete && txToDelete.goalId) {
-            const goal = State.goals.find(g => g.id === txToDelete.goalId);
-            if (goal) {
-                let updatedSaved = Utils.sanitizeNumber(goal.saved);
-                const txAmount = Utils.sanitizeNumber(txToDelete.amount);
+            if (txToDelete && txToDelete.goalId) {
+                const goal = State.goals.find(g => g.id === txToDelete.goalId);
+                if (goal) {
+                    let updatedSaved = Utils.sanitizeNumber(goal.saved);
+                    const txAmount = Utils.sanitizeNumber(txToDelete.amount);
 
-                if (txToDelete.account === 'savings') {
-                    // Deleting a deposit decreases the vault balance
-                    updatedSaved = Math.max(0, Utils.sub(updatedSaved, txAmount));
-                } else if (txToDelete.isWithdrawal || txToDelete.account === 'spending') {
-                    // Deleting a withdrawal refunds the vault balance
-                    updatedSaved = Utils.add(updatedSaved, txAmount);
+                    if (txToDelete.account === 'savings') {
+                        updatedSaved = Math.max(0, Utils.sub(updatedSaved, txAmount));
+                    } else if (txToDelete.isWithdrawal || txToDelete.account === 'spending') {
+                        updatedSaved = Utils.add(updatedSaved, txAmount);
+                    }
+
+                    await API.updateGoal(goal.id, { saved: updatedSaved });
                 }
-
-                await API.updateGoal(goal.id, { saved: updatedSaved });
             }
+            await API.deleteTransaction(id);
         }
-        await API.deleteTransaction(id);
-    }
 
-    if (type === 'goal') {
-        // Detach goal references from existing transactions so they are not orphaned
-        const linkedTransactions = State.transactions.filter(t => t.goalId === id);
-        for (const tx of linkedTransactions) {
-            await API.updateTransaction(tx.id, { goalId: null });
+        if (type === 'goal') {
+            const linkedTransactions = State.transactions.filter(t => t.goalId === id);
+            for (const tx of linkedTransactions) {
+                await API.updateTransaction(tx.id, { goalId: null });
+            }
+            await API.deleteGoal(id);
         }
-        await API.deleteGoal(id);
-    }
 
-    closeModal('delete-modal');
-    State.pendingDelete = { type: null, id: null };
-    await initApp();
-});
-
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
+        closeModal('delete-modal');
+        State.pendingDelete = { type: null, id: null };
         await initApp();
-    } catch (error) {
-        console.error('Unhandled startup error:', error);
-    }
-});
+    });
+}

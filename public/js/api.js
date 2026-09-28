@@ -1,82 +1,110 @@
-let userId = localStorage.getItem('ft_user_id');
-if (!userId) {
-    userId = 'usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
-    localStorage.setItem('ft_user_id', userId);
-}
-
-async function request(url, options = {}) {
-    const headers = {
-        'Content-Type': 'application/json',
-        'x-ft-user-id': userId,
-        ...(options.headers || {})
-    };
-
-    const response = await fetch(url, { ...options, headers });
-    let payload = null;
-
-    try {
-        payload = await response.json();
-    } catch (_err) {
-        payload = null;
-    }
-
-    if (!response.ok) {
-        const message = payload?.error || `Request failed (${response.status})`;
-        throw new Error(message);
-    }
-
-    return payload;
-}
+let currentUserId = null;
 
 export const API = {
+    // Call this from app.js once Firebase onAuthStateChanged resolves
+    setUserId(uid) {
+        currentUserId = uid;
+    },
+
+    getUserId() {
+        return currentUserId;
+    },
+
+    async request(url, options = {}) {
+        if (!currentUserId) {
+            console.warn("API request initiated before user authentication.");
+        }
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'x-ft-user-id': currentUserId || '',
+            ...(options.headers || {})
+        };
+
+        // Attach userId as query parameter for GET requests
+        let targetUrl = url;
+        if (currentUserId) {
+            const separator = targetUrl.includes('?') ? '&' : '?';
+            targetUrl = `${targetUrl}${separator}userId=${encodeURIComponent(currentUserId)}`;
+        }
+
+        const response = await fetch(targetUrl, { ...options, headers });
+        let payload = null;
+
+        try {
+            payload = await response.json();
+        } catch (_err) {
+            payload = null;
+        }
+
+        if (!response.ok) {
+            const message = payload?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+        }
+
+        return payload;
+    },
+
     // TRANSACTIONS
     async getTransactions() {
-        const data = await request('/api/transactions');
+        const data = await this.request('/api/transactions');
         return Array.isArray(data) ? data : [];
     },
 
     async addTransaction(data) {
-        return request('/api/transactions', {
+        return this.request('/api/transactions', {
             method: 'POST',
-            body: JSON.stringify(data)
+            body: JSON.stringify({
+                ...data,
+                userId: currentUserId
+            })
         });
     },
 
     async updateTransaction(id, data) {
-        return request(`/api/transactions/${id}`, {
+        return this.request(`/api/transactions/${id}`, {
             method: 'PATCH',
-            body: JSON.stringify(data)
+            body: JSON.stringify({
+                ...data,
+                userId: currentUserId
+            })
         });
     },
 
     async deleteTransaction(id) {
-        return request(`/api/transactions/${id}`, {
+        return this.request(`/api/transactions/${id}`, {
             method: 'DELETE'
         });
     },
 
     // GOALS
     async getGoals() {
-        const data = await request('/api/goals');
+        const data = await this.request('/api/goals');
         return Array.isArray(data) ? data : [];
     },
 
     async addGoal(data) {
-        return request('/api/goals', {
+        return this.request('/api/goals', {
             method: 'POST',
-            body: JSON.stringify(data)
+            body: JSON.stringify({
+                ...data,
+                userId: currentUserId
+            })
         });
     },
 
     async updateGoal(id, data) {
-        return request(`/api/goals/${id}`, {
+        return this.request(`/api/goals/${id}`, {
             method: 'PATCH',
-            body: JSON.stringify(data)
+            body: JSON.stringify({
+                ...data,
+                userId: currentUserId
+            })
         });
     },
 
     async deleteGoal(id) {
-        return request(`/api/goals/${id}`, {
+        return this.request(`/api/goals/${id}`, {
             method: 'DELETE'
         });
     }
