@@ -3,17 +3,16 @@ import {
     getAuth, 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 
+    sendPasswordResetEmail,
     updateProfile,
     onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
 let auth;
-let currentMode = 'login';
+let currentMode = 'login'; // 'login', 'signup', or 'forgot'
 
-// RFC 5322 standard email regex with valid TLD requirement (at least 2 letters)
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-// Initialize Firebase using your environment config endpoint
 async function initFirebase() {
     try {
         const res = await fetch('/api/config');
@@ -21,9 +20,10 @@ async function initFirebase() {
         const app = initializeApp(config);
         auth = getAuth(app);
 
-        // Redirect to dashboard if already logged in
         onAuthStateChanged(auth, (user) => {
-            if (user) {
+            if (user && currentMode !== 'forgot') {
+                const resolvedName = user.displayName || user.email.split('@')[0];
+                localStorage.setItem('ft_cached_name', resolvedName);
                 window.location.href = '/index.html';
             }
         });
@@ -34,48 +34,76 @@ async function initFirebase() {
 
 initFirebase();
 
-// Tab switching
 window.switchAuthMode = function(mode) {
     currentMode = mode;
     const tabLogin = document.getElementById('tab-login');
     const tabSignup = document.getElementById('tab-signup');
+    const authTabs = document.getElementById('auth-tabs');
     const tag = document.getElementById('auth-tag');
     const nameField = document.getElementById('name-field-group');
+    const passwordField = document.getElementById('password-field-group');
     const submitBtn = document.getElementById('auth-submit-btn');
     const prompt = document.getElementById('auth-toggle-prompt');
     const errorMsg = document.getElementById('auth-error-msg');
+    const successMsg = document.getElementById('auth-success-msg');
     const passwordInput = document.getElementById('auth-password');
 
     errorMsg.style.display = 'none';
+    successMsg.style.display = 'none';
 
     if (mode === 'signup') {
+        authTabs.style.display = 'flex';
         tabSignup.classList.add('active');
         tabLogin.classList.remove('active');
         tag.className = 'card-tag tag-green';
         tag.textContent = 'JOIN US';
         nameField.style.display = 'block';
+        passwordField.style.display = 'block';
         passwordInput.setAttribute('autocomplete', 'new-password');
-        submitBtn.textContent = 'Create Account ♡';
+        submitBtn.textContent = 'Create Account';
         prompt.innerHTML = `Already have an account? <a href="javascript:void(0)" onclick="switchAuthMode('login')">Log in here</a>`;
-    } else {
+    } else if (mode === 'login') {
+        authTabs.style.display = 'flex';
         tabLogin.classList.add('active');
         tabSignup.classList.remove('active');
         tag.className = 'card-tag tag-pink';
         tag.textContent = 'WELCOME BACK';
         nameField.style.display = 'none';
+        passwordField.style.display = 'block';
         passwordInput.setAttribute('autocomplete', 'current-password');
-        submitBtn.textContent = 'Log In ♡';
+        submitBtn.textContent = 'Log In';
         prompt.innerHTML = `Don't have an account yet? <a href="javascript:void(0)" onclick="switchAuthMode('signup')">Sign up here</a>`;
+    } else if (mode === 'forgot') {
+        authTabs.style.display = 'none';
+        tag.className = 'card-tag tag-gold';
+        tag.textContent = 'RESET PASSWORD';
+        nameField.style.display = 'none';
+        passwordField.style.display = 'none';
+        submitBtn.textContent = 'Send Reset Link';
+        prompt.innerHTML = `Remembered your password? <a href="javascript:void(0)" onclick="switchAuthMode('login')">Back to Log In</a>`;
     }
 };
 
 function displayError(msg) {
     const errorMsg = document.getElementById('auth-error-msg');
-    errorMsg.textContent = msg;
-    errorMsg.style.display = 'block';
+    const successMsg = document.getElementById('auth-success-msg');
+    if (successMsg) successMsg.style.display = 'none';
+    if (errorMsg) {
+        errorMsg.textContent = msg;
+        errorMsg.style.display = 'block';
+    }
 }
 
-// Form submission handler
+function displaySuccess(msg) {
+    const errorMsg = document.getElementById('auth-error-msg');
+    const successMsg = document.getElementById('auth-success-msg');
+    if (errorMsg) errorMsg.style.display = 'none';
+    if (successMsg) {
+        successMsg.textContent = msg;
+        successMsg.style.display = 'block';
+    }
+}
+
 const form = document.getElementById('auth-form');
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -83,32 +111,42 @@ form.addEventListener('submit', async (e) => {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     const displayName = document.getElementById('auth-name').value.trim();
-    const errorMsg = document.getElementById('auth-error-msg');
     const submitBtn = document.getElementById('auth-submit-btn');
 
-    errorMsg.style.display = 'none';
+    document.getElementById('auth-error-msg').style.display = 'none';
+    document.getElementById('auth-success-msg').style.display = 'none';
 
-    // 1. Email format and domain validation
     if (!email) {
         displayError('Please enter your email address.');
         return;
     }
     if (!EMAIL_REGEX.test(email)) {
-        displayError('Please enter a valid email address (e.g. name@domain.com).');
+        displayError('Please enter a valid email address.');
         return;
     }
 
-    // 2. Password length validation
+    if (currentMode === 'forgot') {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+
+        try {
+            await sendPasswordResetEmail(auth, email);
+            displaySuccess('Password reset link sent! Check your inbox.');
+        } catch (err) {
+            displayError(formatAuthError(err.code));
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send Reset Link';
+        }
+        return;
+    }
+
     if (!password) {
         displayError('Please enter your password.');
         return;
     }
     if (password.length < 6) {
         displayError('Password must be at least 6 characters long.');
-        return;
-    }
-    if (password.length > 64) {
-        displayError('Password cannot exceed 64 characters.');
         return;
     }
 
@@ -120,18 +158,22 @@ form.addEventListener('submit', async (e) => {
             const credential = await createUserWithEmailAndPassword(auth, email, password);
             if (displayName) {
                 await updateProfile(credential.user, { displayName });
+                localStorage.setItem('ft_cached_name', displayName);
+            } else {
+                localStorage.setItem('ft_cached_name', email.split('@')[0]);
             }
         } else {
-            await signInWithEmailAndPassword(auth, email, password);
+            const credential = await signInWithEmailAndPassword(auth, email, password);
+            const resolvedName = credential.user.displayName || credential.user.email.split('@')[0];
+            localStorage.setItem('ft_cached_name', resolvedName);
         }
 
-        // Redirect to planner on success
         window.location.href = '/index.html';
     } catch (err) {
         displayError(formatAuthError(err.code));
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = currentMode === 'signup' ? 'Create Account ♡' : 'Log In ♡';
+        submitBtn.textContent = currentMode === 'signup' ? 'Create Account' : 'Log In';
     }
 });
 
@@ -150,6 +192,6 @@ function formatAuthError(code) {
         case 'auth/too-many-requests':
             return 'Too many attempts. Please wait a moment before trying again.';
         default:
-            return 'Authentication failed. Please check your connection and try again.';
+            return 'Action failed. Please check your connection and try again.';
     }
 }

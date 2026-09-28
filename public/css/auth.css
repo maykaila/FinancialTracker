@@ -113,6 +113,7 @@ body {
 
 .tag-pink { background-color: #fcecef; color: #b03a52; border-color: #f8ccd5; }
 .tag-green { background-color: #edf7f0; color: #357448; border-color: #cae8d3; }
+.tag-gold { background-color: #fcf4e8; color: #9c631b; border-color: #f8e1c1; }
 
 /* Tabs */
 .auth-tabs {
@@ -158,6 +159,28 @@ body {
     text-transform: uppercase;
 }
 
+.password-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.password-label-row label {
+    margin-bottom: 0;
+}
+
+.forgot-link {
+    font-size: 11px;
+    font-weight: 800;
+    color: #df6d82;
+    text-decoration: none;
+}
+
+.forgot-link:hover {
+    text-decoration: underline;
+}
+
 .planner-form input {
     width: 100%;
     padding: 11px 13px;
@@ -181,6 +204,18 @@ body {
     color: #c44f67;
     background-color: #fcecef;
     border: 1.5px solid #f8ccd5;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.auth-success-msg {
+    color: #276137;
+    background-color: #edf7f0;
+    border: 1.5px solid #cae8d3;
     border-radius: 10px;
     padding: 8px 10px;
     font-size: 11.5px;

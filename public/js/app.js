@@ -2,6 +2,13 @@ import { API } from './api.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
+// Instant synchronous name render from cache to avoid "Loading..." flash
+const cachedName = localStorage.getItem('ft_cached_name');
+const userNameEl = document.getElementById('user-display-name');
+if (userNameEl && cachedName) {
+    userNameEl.textContent = cachedName;
+}
+
 let currentUser = null;
 
 // Initialize Auth & Protect Route
@@ -14,7 +21,7 @@ async function initAuthProtection() {
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                // Not authenticated -> kick to auth page
+                localStorage.removeItem('ft_cached_name');
                 window.location.href = '/auth.html';
                 return;
             }
@@ -22,10 +29,11 @@ async function initAuthProtection() {
             currentUser = user;
             API.setUserId(user.uid);
 
-            // Update user badge in header
-            const userNameEl = document.getElementById('user-display-name');
+            // Authoritative display name update and cache refresh
+            const finalName = user.displayName || user.email.split('@')[0];
+            localStorage.setItem('ft_cached_name', finalName);
             if (userNameEl) {
-                userNameEl.textContent = user.displayName || user.email.split('@')[0];
+                userNameEl.textContent = finalName;
             }
 
             // Bind logout modal triggers
@@ -41,12 +49,13 @@ async function initAuthProtection() {
             if (confirmLogoutBtn) {
                 confirmLogoutBtn.addEventListener('click', async () => {
                     closeModal('logout-modal');
+                    localStorage.removeItem('ft_cached_name');
                     await signOut(auth);
                     window.location.href = '/auth.html';
                 });
             }
 
-            // Load app data for this specific user
+            // Load app data for authenticated user
             await initApp();
         });
     } catch (err) {
@@ -65,7 +74,6 @@ const State = {
 };
 
 const Utils = {
-    // Exact two-decimal arithmetic to eliminate floating-point precision drift
     add: (a, b) => Math.round((Number(a || 0) + Number(b || 0)) * 100) / 100,
     sub: (a, b) => Math.round((Number(a || 0) - Number(b || 0)) * 100) / 100,
 
@@ -82,8 +90,15 @@ const Utils = {
     }
 };
 
-window.openModal = (id) => document.getElementById(id).classList.add('active');
-window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+window.openModal = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+};
+
+window.closeModal = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+};
 
 window.showAlert = function(title, message) {
     document.getElementById('alert-modal-title').textContent = title;
@@ -202,14 +217,12 @@ function renderTransactions() {
         tbody.appendChild(fragment);
     }
 
-    // Top Metric Badges
     document.getElementById('total-income').textContent = Utils.formatCurrency(totals.income);
     document.getElementById('total-spending').textContent = Utils.formatCurrency(totals.spending);
     document.getElementById('total-savings').textContent = Utils.formatCurrency(totals.savings);
     document.getElementById('total-investments').textContent = Utils.formatCurrency(totals.investments);
     document.getElementById('total-protection').textContent = Utils.formatCurrency(totals.protection);
 
-    // Summary Calculations
     const totalAssets = Utils.add(totals.savings, totals.investments);
     const totalOutflow = Utils.add(totals.spending, totals.protection);
     const balance = Utils.sub(totals.income, Utils.add(totalOutflow, totalAssets));
@@ -367,7 +380,6 @@ if (txForm) {
             if (editId) {
                 const oldTx = State.transactions.find(t => t.id === editId);
 
-                // Revert old transaction's impact on goal vault
                 if (oldTx && oldTx.goalId) {
                     const oldGoal = State.goals.find(g => g.id === oldTx.goalId);
                     if (oldGoal) {
@@ -389,7 +401,6 @@ if (txForm) {
 
                 await API.updateTransaction(editId, payload);
 
-                // Apply new transaction's impact on goal vault
                 if (payload.goalId) {
                     const newGoal = State.goals.find(g => g.id === payload.goalId);
                     if (newGoal) {
