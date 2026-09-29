@@ -127,9 +127,9 @@ async function initApp() {
 
     try {
         const [txData, goalsData, budgetData] = await Promise.all([
-            API.getTransactions(),
-            API.getGoals(),
-            API.getBudget()
+            API.getTransactions().catch(() => []),
+            API.getGoals().catch(() => []),
+            API.getBudget().catch(() => ({ amount: 0 }))
         ]);
         State.transactions = txData || [];
         State.goals = goalsData || [];

@@ -8,6 +8,7 @@ const {
     getDocs,
     getDoc,
     addDoc,
+    setDoc,
     doc,
     updateDoc,
     deleteDoc,
