@@ -241,6 +241,52 @@ app.delete('/api/goals/:id', async (req, res) => {
     }
 });
 
+// GET user budget
+app.get('/api/budget', async (req, res) => {
+    try {
+        const database = getDb();
+        const userId = getUserId(req);
+        const ref = doc(database, 'budgets', userId);
+        const snapshot = await getDoc(ref);
+
+        if (!snapshot.exists()) {
+            return res.status(200).json({ amount: 0 });
+        }
+
+        res.status(200).json(snapshot.data());
+    } catch (error) {
+        console.error('GET /api/budget failed:', error);
+        res.status(500).json({ error: 'Failed to load budget' });
+    }
+});
+
+// POST/PUT user budget
+app.post('/api/budget', async (req, res) => {
+    try {
+        const database = getDb();
+        const userId = getUserId(req);
+        const { amount } = req.body || {};
+
+        const normalizedAmount = toAmount(amount);
+        const ref = doc(database, 'budgets', userId);
+
+        const data = {
+            amount: Math.max(0, normalizedAmount),
+            userId,
+            updatedAt: new Date().toISOString()
+        };
+
+        // setDoc with merge: true creates or updates the user's document
+        const { setDoc } = require('firebase/firestore');
+        await setDoc(ref, data, { merge: true });
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error('POST /api/budget failed:', error);
+        res.status(500).json({ error: 'Failed to save budget' });
+    }
+});
+
 // Safe client-side Firebase configuration endpoint
 app.get('/api/config', (req, res) => {
     res.json({

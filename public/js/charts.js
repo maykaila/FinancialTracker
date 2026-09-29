@@ -66,7 +66,7 @@ window.ChartManager = {
 
         if (budgetSpendingCtx && !budgetSpendingChartInstance) {
             budgetSpendingChartInstance = new Chart(budgetSpendingCtx, {
-                type: 'doughnut',
+                type: 'bar',
                 data: {
                     labels: ['Budget Limit', 'Actual Spending'],
                     datasets: [{

@@ -109,17 +109,19 @@ export const API = {
         });
     },
 
-    // Add to API object in api.js
+    // BUDGET
     async getBudget() {
-        const key = `ft_budget_${currentUserId || 'guest'}`;
-        const stored = localStorage.getItem(key);
-        return stored ? JSON.parse(stored) : { amount: 0 };
+        const data = await this.request('/api/budget');
+        return data || { amount: 0 };
     },
 
     async saveBudget(amount) {
-        const key = `ft_budget_${currentUserId || 'guest'}`;
-        const payload = { amount: Number(amount) || 0 };
-        localStorage.setItem(key, JSON.stringify(payload));
-        return payload;
-    }
+        return this.request('/api/budget', {
+            method: 'POST',
+            body: JSON.stringify({
+                amount: Number(amount) || 0,
+                userId: currentUserId
+            })
+        });
+    },
 };
