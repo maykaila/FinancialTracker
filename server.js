@@ -246,7 +246,15 @@ app.delete('/api/goals/:id', async (req, res) => {
 app.get('/api/budget', async (req, res) => {
     try {
         const database = getDb();
-        const userId = getUserId(req);
+        const headerUserId = req.get('x-ft-user-id');
+        const queryUserId = req.query?.userId;
+        const userId = (headerUserId && String(headerUserId).trim())
+            || (queryUserId && String(queryUserId).trim());
+
+        if (!userId) {
+            return res.status(200).json({ amount: 0 });
+        }
+
         const ref = doc(database, 'budgets', userId);
         const snapshot = await getDoc(ref);
 
@@ -257,16 +265,26 @@ app.get('/api/budget', async (req, res) => {
         res.status(200).json(snapshot.data());
     } catch (error) {
         console.error('GET /api/budget failed:', error);
-        res.status(500).json({ error: 'Failed to load budget' });
+        res.status(500).json({ error: error.message || 'Failed to load budget' });
     }
 });
 
-// POST/PUT user budget
+// POST user budget
 app.post('/api/budget', async (req, res) => {
     try {
         const database = getDb();
-        const userId = getUserId(req);
-        const { amount } = req.body || {};
+        const { amount, userId: bodyUserId } = req.body || {};
+        const queryUserId = req.query?.userId;
+        const headerUserId = req.get('x-ft-user-id');
+
+        // Resolve userId from header, body, or query param
+        const userId = (headerUserId && String(headerUserId).trim())
+            || (bodyUserId && String(bodyUserId).trim())
+            || (queryUserId && String(queryUserId).trim());
+
+        if (!userId) {
+            return res.status(401).json({ error: 'User ID is missing' });
+        }
 
         const normalizedAmount = toAmount(amount);
         const ref = doc(database, 'budgets', userId);
@@ -277,14 +295,13 @@ app.post('/api/budget', async (req, res) => {
             updatedAt: new Date().toISOString()
         };
 
-        // setDoc with merge: true creates or updates the user's document
-        const { setDoc } = require('firebase/firestore');
+        // Use the setDoc already imported at the top of server.js
         await setDoc(ref, data, { merge: true });
 
         res.status(200).json(data);
     } catch (error) {
         console.error('POST /api/budget failed:', error);
-        res.status(500).json({ error: 'Failed to save budget' });
+        res.status(500).json({ error: error.message || 'Failed to save budget' });
     }
 });
 
