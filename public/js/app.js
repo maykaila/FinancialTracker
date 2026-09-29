@@ -18,6 +18,7 @@ async function initAuthProtection() {
         const config = await res.json();
         const app = initializeApp(config);
         const auth = getAuth(app);
+        
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
@@ -68,6 +69,8 @@ initAuthProtection();
 const State = {
     transactions: [],
     goals: [],
+    budget: 0,
+    isBudgetEditing: false,
     filterMode: 'all',
     selectedMonthYear: '',
     pendingDelete: { type: null, id: null }
@@ -120,13 +123,17 @@ async function initApp() {
         if (!State.selectedMonthYear) State.selectedMonthYear = filterInput.value;
     }
 
+
+
     try {
-        const [txData, goalsData] = await Promise.all([
+        const [txData, goalsData, budgetData] = await Promise.all([
             API.getTransactions(),
-            API.getGoals()
+            API.getGoals(),
+            API.getBudget()
         ]);
         State.transactions = txData || [];
         State.goals = goalsData || [];
+        State.budget = budgetData?.amount || 0;
         renderAll();
     } catch (error) {
         console.error('Failed to initialize app data from API:', error);
@@ -243,8 +250,62 @@ function renderTransactions() {
         balanceRow.classList.add('balance-positive');
     }
 
+    // Budget UI Calculations
+    const budgetInput = document.getElementById('monthly-budget-input');
+    const budgetSubmitBtn = document.querySelector('#budget-form button[type="submit"]');
+    const budgetEditBtn = document.getElementById('budget-edit-btn');
+    const hasBudgetSet = State.budget > 0;
+
+    if (budgetInput) {
+        budgetInput.disabled = hasBudgetSet && !State.isBudgetEditing;
+        if (!budgetInput.matches(':focus')) {
+            budgetInput.value = hasBudgetSet ? State.budget : '';
+        }
+    }
+
+    if (budgetSubmitBtn) {
+        budgetSubmitBtn.textContent = hasBudgetSet ? 'Save' : 'Set';
+    }
+
+    if (budgetEditBtn) {
+        budgetEditBtn.style.display = hasBudgetSet ? 'inline-flex' : 'none';
+        budgetEditBtn.textContent = State.isBudgetEditing ? 'Cancel' : 'Edit';
+    }
+
+    const budgetDisplayTarget = document.getElementById('budget-display-target');
+    const budgetDisplaySpent = document.getElementById('budget-display-spent');
+    const budgetStatusText = document.getElementById('budget-status-text');
+    const budgetSpentPercent = document.getElementById('budget-spent-percent');
+    const budgetBar = document.getElementById('budget-progress-bar');
+
+    if (budgetDisplayTarget) budgetDisplayTarget.textContent = Utils.formatCurrency(State.budget);
+    if (budgetDisplaySpent) budgetDisplaySpent.textContent = Utils.formatCurrency(totals.spending);
+
+    const percentSpent = State.budget > 0 ? Math.round((totals.spending / State.budget) * 100) : 0;
+    if (budgetSpentPercent) budgetSpentPercent.textContent = `${percentSpent}%`;
+
+    if (budgetBar) {
+        budgetBar.style.width = `${Math.min(100, percentSpent)}%`;
+        budgetBar.style.backgroundColor = totals.spending > State.budget && State.budget > 0 ? '#c44f67' : '#557d62';
+    }
+
+    if (budgetStatusText) {
+        const diff = Utils.sub(State.budget, totals.spending);
+        if (State.budget === 0) {
+            budgetStatusText.textContent = 'No budget set';
+            budgetStatusText.style.color = '#8c8278';
+        } else if (diff >= 0) {
+            budgetStatusText.textContent = `Remaining: ${Utils.formatCurrency(diff)}`;
+            budgetStatusText.style.color = '#357448';
+        } else {
+            budgetStatusText.textContent = `Over budget: ${Utils.formatCurrency(Math.abs(diff))}`;
+            budgetStatusText.style.color = '#c44f67';
+        }
+    }
+
+    // Update charts with both totals and budget
     if (window.ChartManager && typeof ChartManager.update === 'function') {
-        ChartManager.update(totals);
+        ChartManager.update(totals, State.budget);
     }
 }
 
@@ -468,6 +529,46 @@ function resetTxForm() {
 
 const cancelBtn = document.getElementById('tx-cancel-btn');
 if (cancelBtn) cancelBtn.addEventListener('click', resetTxForm);
+
+// Budget Form Submit
+const budgetForm = document.getElementById('budget-form');
+if (budgetForm) {
+    budgetForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (State.budget > 0 && !State.isBudgetEditing) {
+            showAlert('Budget Locked', 'Your budget is already set. Use the Edit button to update it.');
+            return;
+        }
+
+        const inputVal = Utils.sanitizeNumber(document.getElementById('monthly-budget-input').value);
+        if (inputVal <= 0) {
+            showAlert('Invalid Budget', 'Budget must be greater than ₱0.00.');
+            return;
+        }
+        await API.saveBudget(inputVal);
+        State.budget = inputVal;
+        State.isBudgetEditing = false;
+        renderTransactions();
+        showAlert('Budget Saved', `Your spending budget has been set to ${Utils.formatCurrency(inputVal)}.`);
+    });
+}
+
+const budgetEditBtn = document.getElementById('budget-edit-btn');
+if (budgetEditBtn) {
+    budgetEditBtn.addEventListener('click', () => {
+        State.isBudgetEditing = !State.isBudgetEditing;
+        renderTransactions();
+
+        if (State.isBudgetEditing) {
+            const budgetInput = document.getElementById('monthly-budget-input');
+            if (budgetInput) {
+                budgetInput.focus();
+                budgetInput.select();
+            }
+        }
+    });
+}
 
 // Add Goal Form
 const addGoalBtn = document.getElementById('open-add-goal-btn');

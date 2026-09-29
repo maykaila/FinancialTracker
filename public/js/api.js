@@ -107,5 +107,19 @@ export const API = {
         return this.request(`/api/goals/${id}`, {
             method: 'DELETE'
         });
+    },
+
+    // Add to API object in api.js
+    async getBudget() {
+        const key = `ft_budget_${currentUserId || 'guest'}`;
+        const stored = localStorage.getItem(key);
+        return stored ? JSON.parse(stored) : { amount: 0 };
+    },
+
+    async saveBudget(amount) {
+        const key = `ft_budget_${currentUserId || 'guest'}`;
+        const payload = { amount: Number(amount) || 0 };
+        localStorage.setItem(key, JSON.stringify(payload));
+        return payload;
     }
 };

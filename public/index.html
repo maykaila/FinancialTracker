@@ -95,6 +95,14 @@
                     <canvas id="comparisonChart"></canvas>
                 </div>
             </div>
+
+            <!-- Budget vs Actual Spending Chart -->
+            <div class="planner-card chart-card">
+                <div class="card-tag tag-gold">BUDGET VS SPENDING</div>
+                <div class="chart-box">
+                    <canvas id="budgetSpendingChart"></canvas>
+                </div>
+            </div>
         </section>
 
         <!-- Main Content Area -->
@@ -148,6 +156,35 @@
                         <div id="summary-balance-row" class="summary-item summary-total">
                             <span>REMAINING BALANCE</span>
                             <strong id="summary-balance">₱0.00</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Budget Planner Card -->
+                <div class="planner-card budget-card">
+                    <div class="card-tag tag-pink">MONTHLY BUDGET</div>
+                    <form id="budget-form" class="planner-form">
+                        <div class="form-group">
+                            <label for="monthly-budget-input">Set Spending Budget (₱)</label>
+                            <div class="budget-input-actions">
+                                <input type="number" id="monthly-budget-input" placeholder="e.g. 15000" step="0.01" min="0" required>
+                                <button type="submit" class="planner-btn btn-primary" style="flex: 0 0 70px;">Set</button>
+                                <button type="button" id="budget-edit-btn" class="planner-btn btn-secondary" style="flex: 0 0 70px; display: none;">Edit</button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div class="overall-vault-stats" style="margin-top: 10px;">
+                        <div class="progress-labels">
+                            <span>Budget: <strong id="budget-display-target">₱0.00</strong></span>
+                            <span id="budget-spent-percent">0%</span>
+                        </div>
+                        <div class="progress-track" style="margin: 6px 0;">
+                            <div id="budget-progress-bar" class="progress-fill" style="width: 0%; background-color: #557d62;"></div>
+                        </div>
+                        <div class="progress-labels" style="font-size: 10px;">
+                            <span>Spent: <span id="budget-display-spent">₱0.00</span></span>
+                            <span id="budget-status-text">Remaining: ₱0.00</span>
                         </div>
                     </div>
                 </div>

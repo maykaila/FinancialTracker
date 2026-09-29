@@ -342,7 +342,9 @@ body {
 }
 
 .charts-row {
-    grid-template-columns: 1fr 1fr;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
 }
 
 .main-content-row {
@@ -646,6 +648,23 @@ body {
     opacity: 0.95;
 }
 
+.budget-input-actions {
+    display: flex;
+    gap: 8px;
+}
+
+#monthly-budget-input:disabled {
+    cursor: not-allowed;
+    background-color: #f5f1eb;
+    color: #8c8278;
+}
+
+#budget-edit-btn {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
 /* Goals Vault */
 .icon-add-btn {
     background: #7f4ea3;
@@ -903,7 +922,9 @@ body {
 /* Tablets (below 900px) */
 @media (max-width: 900px) {
     .charts-row {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 24px;
     }
 
     .metrics-grid {
@@ -981,6 +1002,18 @@ body {
     .form-row {
         flex-direction: column;
         gap: 0;
+    }
+
+    .budget-input-actions {
+        flex-wrap: wrap;
+    }
+
+    .budget-input-actions input {
+        flex: 1 0 100%;
+    }
+
+    .budget-input-actions .planner-btn {
+        flex: 1;
     }
 
     .deco-sticker {
