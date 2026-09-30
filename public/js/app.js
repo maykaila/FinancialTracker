@@ -265,6 +265,7 @@ function renderTransactions() {
 
     if (budgetSubmitBtn) {
         budgetSubmitBtn.textContent = hasBudgetSet ? 'Save' : 'Set';
+        budgetSubmitBtn.style.display = hasBudgetSet && !State.isBudgetEditing ? 'none' : 'inline-flex';
     }
 
     if (budgetEditBtn) {
@@ -542,10 +543,28 @@ if (budgetForm) {
         }
 
         const inputVal = Utils.sanitizeNumber(document.getElementById('monthly-budget-input').value);
-        if (inputVal <= 0) {
-            showAlert('Invalid Budget', 'Budget must be greater than ₱0.00.');
+        const isResetToZero = inputVal === 0;
+        const canReset = State.budget > 0 && State.isBudgetEditing;
+
+        if (inputVal < 0) {
+            showAlert('Invalid Budget', 'Budget cannot be negative.');
             return;
         }
+
+        if (isResetToZero && !canReset) {
+            showAlert('Invalid Budget', 'Set a budget greater than ₱0.00. To delete it, click Edit and save 0.');
+            return;
+        }
+
+        if (inputVal === 0 && canReset) {
+            await API.saveBudget(0);
+            State.budget = 0;
+            State.isBudgetEditing = false;
+            renderTransactions();
+            showAlert('Budget Reset', 'Your spending budget has been reset to ₱0.00.');
+            return;
+        }
+
         await API.saveBudget(inputVal);
         State.budget = inputVal;
         State.isBudgetEditing = false;

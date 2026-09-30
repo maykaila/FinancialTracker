@@ -653,6 +653,13 @@ body {
     gap: 8px;
 }
 
+.budget-input-actions .planner-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
 #monthly-budget-input:disabled {
     cursor: not-allowed;
     background-color: #f5f1eb;
