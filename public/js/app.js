@@ -10,6 +10,9 @@ if (userNameEl && cachedName) {
 }
 
 let currentUser = null;
+const ActionLocks = new Set();
+let hasBoundLogoutHandlers = false;
+let initializedUserId = null;
 
 // Initialize Auth & Protect Route
 async function initAuthProtection() {
@@ -20,8 +23,11 @@ async function initAuthProtection() {
         const auth = getAuth(app);
         
 
+        bindLogoutHandlers(auth);
+
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
+                initializedUserId = null;
                 localStorage.removeItem('ft_cached_name');
                 window.location.href = '/auth.html';
                 return;
@@ -37,31 +43,46 @@ async function initAuthProtection() {
                 userNameEl.textContent = finalName;
             }
 
-            // Bind logout modal triggers
-            const logoutBtn = document.getElementById('logout-btn');
-            const confirmLogoutBtn = document.getElementById('confirm-logout-btn');
-
-            if (logoutBtn) {
-                logoutBtn.addEventListener('click', () => {
-                    openModal('logout-modal');
-                });
-            }
-
-            if (confirmLogoutBtn) {
-                confirmLogoutBtn.addEventListener('click', async () => {
-                    closeModal('logout-modal');
-                    localStorage.removeItem('ft_cached_name');
-                    await signOut(auth);
-                    window.location.href = '/auth.html';
-                });
-            }
-
             // Load app data for authenticated user
-            await initApp();
+            if (initializedUserId !== user.uid) {
+                initializedUserId = user.uid;
+                await initApp();
+            }
         });
     } catch (err) {
         console.error("Auth guard error:", err);
     }
+}
+
+function bindLogoutHandlers(auth) {
+    if (hasBoundLogoutHandlers) return;
+
+    const logoutBtn = document.getElementById('logout-btn');
+    const confirmLogoutBtn = document.getElementById('confirm-logout-btn');
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            openModal('logout-modal');
+        });
+    }
+
+    if (confirmLogoutBtn) {
+        confirmLogoutBtn.addEventListener('click', async () => {
+            if (ActionLocks.has('logout')) return;
+            ActionLocks.add('logout');
+
+            try {
+                closeModal('logout-modal');
+                localStorage.removeItem('ft_cached_name');
+                await signOut(auth);
+                window.location.href = '/auth.html';
+            } finally {
+                ActionLocks.delete('logout');
+            }
+        });
+    }
+
+    hasBoundLogoutHandlers = true;
 }
 
 initAuthProtection();
@@ -428,6 +449,12 @@ if (txForm) {
             }
         }
 
+        if (ActionLocks.has('transaction-submit')) {
+            return;
+        }
+
+        ActionLocks.add('transaction-submit');
+
         btn.disabled = true;
         const editId = document.getElementById('edit-tx-id').value;
         const payload = {
@@ -496,6 +523,7 @@ if (txForm) {
             showAlert('Save Failed', 'Unable to save transaction. Please check your connection and try again.');
         } finally {
             btn.disabled = false;
+            ActionLocks.delete('transaction-submit');
         }
     });
 }
@@ -537,6 +565,10 @@ if (budgetForm) {
     budgetForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        if (ActionLocks.has('budget-submit')) {
+            return;
+        }
+
         if (State.budget > 0 && !State.isBudgetEditing) {
             showAlert('Budget Locked', 'Your budget is already set. Use the Edit button to update it.');
             return;
@@ -556,20 +588,32 @@ if (budgetForm) {
             return;
         }
 
-        if (inputVal === 0 && canReset) {
-            await API.saveBudget(0);
-            State.budget = 0;
+        ActionLocks.add('budget-submit');
+        const submitBtn = document.querySelector('#budget-form button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            if (inputVal === 0 && canReset) {
+                await API.saveBudget(0);
+                State.budget = 0;
+                State.isBudgetEditing = false;
+                renderTransactions();
+                showAlert('Budget Reset', 'Your spending budget has been reset to ₱0.00.');
+                return;
+            }
+
+            await API.saveBudget(inputVal);
+            State.budget = inputVal;
             State.isBudgetEditing = false;
             renderTransactions();
-            showAlert('Budget Reset', 'Your spending budget has been reset to ₱0.00.');
-            return;
+            showAlert('Budget Saved', `Your spending budget has been set to ${Utils.formatCurrency(inputVal)}.`);
+        } catch (error) {
+            console.error('Budget submit failed:', error);
+            showAlert('Save Failed', 'Unable to save budget. Please try again.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            ActionLocks.delete('budget-submit');
         }
-
-        await API.saveBudget(inputVal);
-        State.budget = inputVal;
-        State.isBudgetEditing = false;
-        renderTransactions();
-        showAlert('Budget Saved', `Your spending budget has been set to ${Utils.formatCurrency(inputVal)}.`);
     });
 }
 
@@ -597,6 +641,8 @@ const addGoalForm = document.getElementById('add-goal-form');
 if (addGoalForm) {
     addGoalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (ActionLocks.has('goal-add')) return;
+
         const target = Utils.sanitizeNumber(document.getElementById('new-goal-target').value);
         const saved = Utils.sanitizeNumber(document.getElementById('new-goal-saved').value);
 
@@ -610,10 +656,23 @@ if (addGoalForm) {
             target,
             saved: Math.max(0, saved)
         };
-        await API.addGoal(payload);
-        document.getElementById('add-goal-form').reset();
-        closeModal('add-goal-modal');
-        await initApp();
+
+        const submitBtn = addGoalForm.querySelector('button[type="submit"]');
+        ActionLocks.add('goal-add');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            await API.addGoal(payload);
+            document.getElementById('add-goal-form').reset();
+            closeModal('add-goal-modal');
+            await initApp();
+        } catch (error) {
+            console.error('Add goal failed:', error);
+            showAlert('Save Failed', 'Unable to create goal right now.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            ActionLocks.delete('goal-add');
+        }
     });
 }
 
@@ -631,6 +690,8 @@ const editGoalForm = document.getElementById('edit-goal-form');
 if (editGoalForm) {
     editGoalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (ActionLocks.has('goal-edit')) return;
+
         const id = document.getElementById('edit-goal-id').value;
         const target = Utils.sanitizeNumber(document.getElementById('edit-goal-target').value);
 
@@ -639,9 +700,21 @@ if (editGoalForm) {
             return;
         }
 
-        await API.updateGoal(id, { target });
-        closeModal('edit-goal-modal');
-        await initApp();
+        const submitBtn = editGoalForm.querySelector('button[type="submit"]');
+        ActionLocks.add('goal-edit');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            await API.updateGoal(id, { target });
+            closeModal('edit-goal-modal');
+            await initApp();
+        } catch (error) {
+            console.error('Edit goal failed:', error);
+            showAlert('Update Failed', 'Unable to update this goal right now.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            ActionLocks.delete('goal-edit');
+        }
     });
 }
 
@@ -662,6 +735,8 @@ const withdrawGoalForm = document.getElementById('withdraw-goal-form');
 if (withdrawGoalForm) {
     withdrawGoalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (ActionLocks.has('goal-withdraw')) return;
+
         const id = document.getElementById('withdraw-goal-id').value;
         const goal = State.goals.find(g => g.id === id);
         if (!goal) return;
@@ -681,21 +756,33 @@ if (withdrawGoalForm) {
             return;
         }
 
-        const newSaved = Math.max(0, Utils.sub(currentSaved, amountToWithdraw));
-        await API.updateGoal(goal.id, { saved: newSaved });
+        const submitBtn = withdrawGoalForm.querySelector('button[type="submit"]');
+        ActionLocks.add('goal-withdraw');
+        if (submitBtn) submitBtn.disabled = true;
 
-        await API.addTransaction({
-            description: reason || `Spent from ${goal.name}`,
-            account: 'spending',
-            method: method,
-            amount: amountToWithdraw,
-            goalId: goal.id,
-            isWithdrawal: true
-        });
+        try {
+            const newSaved = Math.max(0, Utils.sub(currentSaved, amountToWithdraw));
+            await API.updateGoal(goal.id, { saved: newSaved });
 
-        document.getElementById('withdraw-goal-form').reset();
-        closeModal('withdraw-goal-modal');
-        await initApp();
+            await API.addTransaction({
+                description: reason || `Spent from ${goal.name}`,
+                account: 'spending',
+                method: method,
+                amount: amountToWithdraw,
+                goalId: goal.id,
+                isWithdrawal: true
+            });
+
+            document.getElementById('withdraw-goal-form').reset();
+            closeModal('withdraw-goal-modal');
+            await initApp();
+        } catch (error) {
+            console.error('Withdraw goal failed:', error);
+            showAlert('Save Failed', 'Unable to complete withdrawal right now.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            ActionLocks.delete('goal-withdraw');
+        }
     });
 }
 
@@ -710,39 +797,52 @@ window.promptDelete = (type, id) => {
 const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
 if (confirmDeleteBtn) {
     confirmDeleteBtn.addEventListener('click', async () => {
+        if (ActionLocks.has('record-delete')) return;
+
         const { type, id } = State.pendingDelete;
 
-        if (type === 'tx') {
-            const txToDelete = State.transactions.find(t => t.id === id);
+        ActionLocks.add('record-delete');
+        confirmDeleteBtn.disabled = true;
 
-            if (txToDelete && txToDelete.goalId) {
-                const goal = State.goals.find(g => g.id === txToDelete.goalId);
-                if (goal) {
-                    let updatedSaved = Utils.sanitizeNumber(goal.saved);
-                    const txAmount = Utils.sanitizeNumber(txToDelete.amount);
+        try {
+            if (type === 'tx') {
+                const txToDelete = State.transactions.find(t => t.id === id);
 
-                    if (txToDelete.account === 'savings') {
-                        updatedSaved = Math.max(0, Utils.sub(updatedSaved, txAmount));
-                    } else if (txToDelete.isWithdrawal || txToDelete.account === 'spending') {
-                        updatedSaved = Utils.add(updatedSaved, txAmount);
+                if (txToDelete && txToDelete.goalId) {
+                    const goal = State.goals.find(g => g.id === txToDelete.goalId);
+                    if (goal) {
+                        let updatedSaved = Utils.sanitizeNumber(goal.saved);
+                        const txAmount = Utils.sanitizeNumber(txToDelete.amount);
+
+                        if (txToDelete.account === 'savings') {
+                            updatedSaved = Math.max(0, Utils.sub(updatedSaved, txAmount));
+                        } else if (txToDelete.isWithdrawal || txToDelete.account === 'spending') {
+                            updatedSaved = Utils.add(updatedSaved, txAmount);
+                        }
+
+                        await API.updateGoal(goal.id, { saved: updatedSaved });
                     }
-
-                    await API.updateGoal(goal.id, { saved: updatedSaved });
                 }
+                await API.deleteTransaction(id);
             }
-            await API.deleteTransaction(id);
-        }
 
-        if (type === 'goal') {
-            const linkedTransactions = State.transactions.filter(t => t.goalId === id);
-            for (const tx of linkedTransactions) {
-                await API.updateTransaction(tx.id, { goalId: null });
+            if (type === 'goal') {
+                const linkedTransactions = State.transactions.filter(t => t.goalId === id);
+                for (const tx of linkedTransactions) {
+                    await API.updateTransaction(tx.id, { goalId: null });
+                }
+                await API.deleteGoal(id);
             }
-            await API.deleteGoal(id);
-        }
 
-        closeModal('delete-modal');
-        State.pendingDelete = { type: null, id: null };
-        await initApp();
+            closeModal('delete-modal');
+            State.pendingDelete = { type: null, id: null };
+            await initApp();
+        } catch (error) {
+            console.error('Delete operation failed:', error);
+            showAlert('Delete Failed', 'Unable to delete this record right now.');
+        } finally {
+            confirmDeleteBtn.disabled = false;
+            ActionLocks.delete('record-delete');
+        }
     });
 }

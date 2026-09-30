@@ -10,6 +10,7 @@ import {
 
 let auth;
 let currentMode = 'login'; // 'login', 'signup', or 'forgot'
+let authActionInFlight = false;
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -108,6 +109,10 @@ const form = document.getElementById('auth-form');
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    if (authActionInFlight) {
+        return;
+    }
+
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     const displayName = document.getElementById('auth-name').value.trim();
@@ -126,6 +131,7 @@ form.addEventListener('submit', async (e) => {
     }
 
     if (currentMode === 'forgot') {
+        authActionInFlight = true;
         submitBtn.disabled = true;
         submitBtn.textContent = 'Sending...';
 
@@ -135,6 +141,7 @@ form.addEventListener('submit', async (e) => {
         } catch (err) {
             displayError(formatAuthError(err.code));
         } finally {
+            authActionInFlight = false;
             submitBtn.disabled = false;
             submitBtn.textContent = 'Send Reset Link';
         }
@@ -150,6 +157,7 @@ form.addEventListener('submit', async (e) => {
         return;
     }
 
+    authActionInFlight = true;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Loading...';
 
@@ -172,6 +180,7 @@ form.addEventListener('submit', async (e) => {
     } catch (err) {
         displayError(formatAuthError(err.code));
     } finally {
+        authActionInFlight = false;
         submitBtn.disabled = false;
         submitBtn.textContent = currentMode === 'signup' ? 'Create Account' : 'Log In';
     }

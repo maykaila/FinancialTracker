@@ -1,4 +1,17 @@
 let currentUserId = null;
+let requestCounter = 0;
+const pendingRequests = new Map();
+const mutationMethods = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+
+function nextIdempotencyKey(method, url) {
+    requestCounter += 1;
+    return `${method}:${url}:${Date.now()}:${requestCounter}`;
+}
+
+function dedupeRequestKey(method, targetUrl, body) {
+    const bodySig = body || '';
+    return `${currentUserId || 'anonymous'}:${method}:${targetUrl}:${bodySig}`;
+}
 
 export const API = {
     // Call this from app.js once Firebase onAuthStateChanged resolves
@@ -15,6 +28,9 @@ export const API = {
             console.warn("API request initiated before user authentication.");
         }
 
+        const method = (options.method || 'GET').toUpperCase();
+        const isMutation = mutationMethods.has(method);
+
         const headers = {
             'Content-Type': 'application/json',
             'x-ft-user-id': currentUserId || '',
@@ -28,21 +44,39 @@ export const API = {
             targetUrl = `${targetUrl}${separator}userId=${encodeURIComponent(currentUserId)}`;
         }
 
-        const response = await fetch(targetUrl, { ...options, headers });
-        let payload = null;
-
-        try {
-            payload = await response.json();
-        } catch (_err) {
-            payload = null;
+        if (isMutation && !headers['x-idempotency-key']) {
+            headers['x-idempotency-key'] = nextIdempotencyKey(method, url);
         }
 
-        if (!response.ok) {
-            const message = payload?.error || `Request failed (${response.status})`;
-            throw new Error(message);
+        const dedupeKey = dedupeRequestKey(method, targetUrl, options.body);
+        if (isMutation && pendingRequests.has(dedupeKey)) {
+            return pendingRequests.get(dedupeKey);
         }
 
-        return payload;
+        const requestPromise = (async () => {
+            const response = await fetch(targetUrl, { ...options, method, headers });
+            let payload = null;
+
+            try {
+                payload = await response.json();
+            } catch (_err) {
+                payload = null;
+            }
+
+            if (!response.ok) {
+                const message = payload?.error || `Request failed (${response.status})`;
+                throw new Error(message);
+            }
+
+            return payload;
+        })();
+
+        if (isMutation) {
+            pendingRequests.set(dedupeKey, requestPromise);
+            requestPromise.finally(() => pendingRequests.delete(dedupeKey));
+        }
+
+        return requestPromise;
     },
 
     // TRANSACTIONS
