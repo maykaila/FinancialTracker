@@ -6,29 +6,70 @@ let allocationChartInstance = null;
 let comparisonChartInstance = null;
 let budgetSpendingChartInstance = null;
 
+const formatPesoCompact = (n) => {
+    return `₱${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
+
+const donutCenterTextPlugin = {
+    id: 'donutCenterText',
+    afterDatasetsDraw(chart) {
+        if (chart.config.type !== 'doughnut') return;
+        const centerCfg = chart?.options?.plugins?.donutCenterText;
+        if (!centerCfg?.enabled) return;
+
+        const meta = chart.getDatasetMeta(0);
+        const firstArc = meta?.data?.[0];
+        if (!firstArc) return;
+
+        const { x, y } = firstArc;
+        const ctx = chart.ctx;
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.fillStyle = centerCfg.color || '#4a423b';
+        ctx.font = centerCfg.valueFont || "700 12px 'M PLUS Rounded 1c', sans-serif";
+        ctx.fillText(centerCfg.valueText || '', x, y - 2);
+
+        if (centerCfg.captionText) {
+            ctx.fillStyle = centerCfg.captionColor || '#8c8278';
+            ctx.font = centerCfg.captionFont || "700 9px 'M PLUS Rounded 1c', sans-serif";
+            ctx.fillText(centerCfg.captionText, x, y + 13);
+        }
+
+        ctx.restore();
+    }
+};
+
 window.ChartManager = {
     init() {
         if (typeof Chart === 'undefined') return;
+        Chart.register(donutCenterTextPlugin);
 
         // 1. Account Breakdown (Doughnut)
         if (allocationCtx && !allocationChartInstance) {
             allocationChartInstance = new Chart(allocationCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Income', 'Spending', 'Savings', 'Investments', 'Protection'],
+                    labels: ['Cash', 'Savings', 'Investments', 'Protection'],
                     datasets: [{
-                        data: [0, 0, 0, 0, 0],
-                        backgroundColor: ['#e27289', '#557d62', '#c98a3b', '#8b5db3', '#4988bd'],
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#e27289', '#c98a3b', '#8b5db3', '#4988bd'],
                         borderRadius: 8
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '30%',
+                    cutout: '58%',
+                    layout: {
+                        padding: { top: 8, right: 8, bottom: 8, left: 8 }
+                    },
                     plugins: {
                         legend: {
                             position: 'bottom',
+                            align: 'center',
                             labels: { font: { family: "'M PLUS Rounded 1c', sans-serif", weight: '700', size: 10 } }
                         },
                         tooltip: {
@@ -82,14 +123,23 @@ window.ChartManager = {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '30%',
+                    cutout: '62%',
+                    layout: {
+                        padding: { top: 8, right: 8, bottom: 8, left: 8 }
+                    },
                     plugins: {
                         legend: {
                             position: 'bottom',
+                            align: 'center',
                             labels: {
                                 font: { family: "'M PLUS Rounded 1c', sans-serif", weight: '700', size: 10 },
                                 boxWidth: 12
                             }
+                        },
+                        donutCenterText: {
+                            enabled: true,
+                            valueText: '₱0 / ₱0',
+                            captionText: 'utilization'
                         },
                         tooltip: {
                             callbacks: {
@@ -102,19 +152,25 @@ window.ChartManager = {
         }
     },
 
-    update(totals, budget = 0) {
+    update(totals, budget = 0, monthlyTotals = null) {
         if (!allocationChartInstance || !comparisonChartInstance || !budgetSpendingChartInstance) {
             this.init();
         }
 
         // Update Account Breakdown Doughnut
         if (allocationChartInstance) {
+            const income = Number(totals.income || 0);
+            const spending = Number(totals.spending || 0);
+            const savings = Number(totals.savings || 0);
+            const investments = Number(totals.investments || 0);
+            const protection = Number(totals.protection || 0);
+            const cash = Math.max(0, income - (spending + savings + investments + protection));
+
             allocationChartInstance.data.datasets[0].data = [
-                totals.income || 0,
-                totals.spending || 0,
-                totals.savings || 0,
-                totals.investments || 0,
-                totals.protection || 0
+                cash,
+                savings,
+                investments,
+                protection
             ];
             allocationChartInstance.update();
         }
@@ -128,7 +184,8 @@ window.ChartManager = {
 
         // Update Budget Doughnut
         if (budgetSpendingChartInstance) {
-            const actualSpending = Number(totals.spending || 0);
+            const scoped = monthlyTotals || totals;
+            const actualSpending = Number(scoped.spending || 0);
             const budgetLimit = Number(budget || 0);
             const isOver = actualSpending > budgetLimit && budgetLimit > 0;
 
@@ -148,6 +205,12 @@ window.ChartManager = {
                 budgetSpendingChartInstance.data.datasets[0].data = [actualSpending, remaining];
                 budgetSpendingChartInstance.data.datasets[0].backgroundColor = ['#557d62', '#ede5da'];
             }
+
+            budgetSpendingChartInstance.options.plugins.donutCenterText = {
+                enabled: true,
+                valueText: `${formatPesoCompact(actualSpending)} / ${formatPesoCompact(budgetLimit)}`,
+                captionText: 'utilization'
+            };
 
             budgetSpendingChartInstance.update();
         }

@@ -94,7 +94,9 @@ const State = {
     isBudgetEditing: false,
     filterMode: 'all',
     selectedMonthYear: '',
-    pendingDelete: { type: null, id: null }
+    pendingDelete: { type: null, id: null },
+    lastDisplayTotals: { income: 0, spending: 0, savings: 0, investments: 0, protection: 0 },
+    lastMonthlyTotals: { income: 0, spending: 0, savings: 0, investments: 0, protection: 0 }
 };
 
 const Utils = {
@@ -111,8 +113,67 @@ const Utils = {
     sanitizeNumber: (val) => {
         const num = parseFloat(val);
         return isNaN(num) || !isFinite(num) ? 0 : Math.round(num * 100) / 100;
+    },
+
+    parseTxDate: (val) => {
+        if (!val) return new Date();
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            const [y, m, d] = val.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+        const parsed = new Date(val);
+        return isNaN(parsed.getTime()) ? new Date() : parsed;
     }
 };
+
+function formatProgressPercent(percent) {
+    const value = Number(percent || 0);
+    if (value > 0 && value < 5) {
+        return `${value.toFixed(1)}%`;
+    }
+    return `${Math.round(value)}%`;
+}
+
+function getCurrentMonthYear() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getActiveMonthYear() {
+    const filterInput = document.getElementById('month-year-filter');
+    if (State.filterMode === 'month' && State.selectedMonthYear) {
+        return State.selectedMonthYear;
+    }
+    if (filterInput?.value) {
+        return filterInput.value;
+    }
+    return getCurrentMonthYear();
+}
+
+function filterTransactionsByMonthYear(transactions, monthYear) {
+    return transactions.filter(t => {
+        const txDate = Utils.parseTxDate(t.date);
+        const txMonth = String(txDate.getMonth() + 1).padStart(2, '0');
+        const txYearMonth = `${txDate.getFullYear()}-${txMonth}`;
+        return txYearMonth === monthYear;
+    });
+}
+
+function computeTotals(transactions) {
+    return transactions.reduce((acc, t) => {
+        const amt = Utils.sanitizeNumber(t.amount);
+        if (acc[t.account] !== undefined) {
+            acc[t.account] = Utils.add(acc[t.account], amt);
+        }
+
+        // Spending entries created from vault withdrawals should also reduce net savings balance.
+        if (t.isWithdrawal) {
+            acc.savings = Utils.sub(acc.savings, amt);
+        }
+
+        return acc;
+    }, { income: 0, spending: 0, savings: 0, investments: 0, protection: 0 });
+}
 
 window.openModal = (id) => {
     const el = document.getElementById(id);
@@ -192,9 +253,38 @@ if (monthFilter) {
 }
 
 function renderAll() {
+    renderPeriodAwareCardTitles();
     renderTransactions();
     renderGoals();
-    populateGoalDropdown();
+}
+
+function renderPeriodAwareCardTitles() {
+    const summaryTag = document.getElementById('summary-card-tag');
+    const budgetTag = document.getElementById('budget-card-tag');
+
+    if (!summaryTag || !budgetTag) return;
+
+    if (State.filterMode === 'all') {
+        summaryTag.textContent = 'OVERALL SUMMARY';
+        budgetTag.textContent = 'OVERALL BUDGET';
+        return;
+    }
+
+    const monthValue = State.selectedMonthYear || document.getElementById('month-year-filter')?.value;
+    if (!monthValue || !/^\d{4}-\d{2}$/.test(monthValue)) {
+        summaryTag.textContent = 'MONTHLY SUMMARY';
+        budgetTag.textContent = 'MONTHLY BUDGET';
+        return;
+    }
+
+    const [yearStr, monthStr] = monthValue.split('-');
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    const refDate = new Date(year, month - 1, 1);
+    const monthName = refDate.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
+
+    summaryTag.textContent = `${monthName} SUMMARY`;
+    budgetTag.textContent = `${monthName} BUDGET`;
 }
 
 function renderTransactions() {
@@ -202,33 +292,36 @@ function renderTransactions() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const totals = { income: 0, spending: 0, savings: 0, investments: 0, protection: 0 };
-
     const filteredTx = State.transactions.filter(t => {
         if (State.filterMode === 'all' || !State.selectedMonthYear) return true;
-        const txDate = new Date(t.date || Date.now());
+        const txDate = Utils.parseTxDate(t.date);
         const txMonth = String(txDate.getMonth() + 1).padStart(2, '0');
         const txYearMonth = `${txDate.getFullYear()}-${txMonth}`;
         return txYearMonth === State.selectedMonthYear;
     });
 
+    const activeMonthYear = getActiveMonthYear();
+    const monthlyScopedTx = filterTransactionsByMonthYear(State.transactions, activeMonthYear);
+
+    const displayTotals = computeTotals(filteredTx);
+    const monthlyTotals = computeTotals(monthlyScopedTx);
+
+    State.lastDisplayTotals = displayTotals;
+    State.lastMonthlyTotals = monthlyTotals;
+
     if (filteredTx.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9c9288; padding:20px;">No entries logged for this period.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#9c9288; padding:20px;">No entries logged for this period.</td></tr>`;
     } else {
         const fragment = document.createDocumentFragment();
         filteredTx.forEach(t => {
             const amt = Utils.sanitizeNumber(t.amount);
-            if (totals[t.account] !== undefined) {
-                totals[t.account] = Utils.add(totals[t.account], amt);
-            }
 
             const tr = document.createElement('tr');
-            const dateStr = new Date(t.date || Date.now()).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+            const dateStr = Utils.parseTxDate(t.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
             tr.innerHTML = `
                 <td>${dateStr}</td>
                 <td>${t.description}</td>
                 <td><span class="badge-pill ${t.account}">${t.account}</span></td>
-                <td><span class="method-badge">${t.method || 'Cash'}</span></td>
                 <td class="text-right">${Utils.formatCurrency(amt)}</td>
                 <td class="text-center">
                     <div class="kebab-container">
@@ -245,19 +338,20 @@ function renderTransactions() {
         tbody.appendChild(fragment);
     }
 
-    document.getElementById('total-income').textContent = Utils.formatCurrency(totals.income);
-    document.getElementById('total-spending').textContent = Utils.formatCurrency(totals.spending);
-    document.getElementById('total-savings').textContent = Utils.formatCurrency(totals.savings);
-    document.getElementById('total-investments').textContent = Utils.formatCurrency(totals.investments);
-    document.getElementById('total-protection').textContent = Utils.formatCurrency(totals.protection);
+    document.getElementById('total-income').textContent = Utils.formatCurrency(displayTotals.income);
+    document.getElementById('total-spending').textContent = Utils.formatCurrency(displayTotals.spending);
+    document.getElementById('total-savings').textContent = Utils.formatCurrency(displayTotals.savings);
+    document.getElementById('total-investments').textContent = Utils.formatCurrency(displayTotals.investments);
+    document.getElementById('total-protection').textContent = Utils.formatCurrency(displayTotals.protection);
 
-    const totalAssets = Utils.add(totals.savings, totals.investments);
-    const totalOutflow = Utils.add(totals.spending, totals.protection);
-    const balance = Utils.sub(totals.income, Utils.add(totalOutflow, totalAssets));
+    const summaryScopeTotals = State.filterMode === 'all' ? displayTotals : monthlyTotals;
+    const totalAssets = Utils.add(summaryScopeTotals.savings, summaryScopeTotals.investments);
+    const totalOutflow = Utils.add(summaryScopeTotals.spending, summaryScopeTotals.protection);
+    const balance = Utils.sub(summaryScopeTotals.income, Utils.add(totalOutflow, totalAssets));
 
-    document.getElementById('summary-income').textContent = Utils.formatCurrency(totals.income);
-    document.getElementById('summary-spending').textContent = Utils.formatCurrency(totals.spending);
-    document.getElementById('summary-protection').textContent = Utils.formatCurrency(totals.protection);
+    document.getElementById('summary-income').textContent = Utils.formatCurrency(summaryScopeTotals.income);
+    document.getElementById('summary-spending').textContent = Utils.formatCurrency(summaryScopeTotals.spending);
+    document.getElementById('summary-protection').textContent = Utils.formatCurrency(summaryScopeTotals.protection);
     document.getElementById('summary-assets').textContent = Utils.formatCurrency(totalAssets);
     
     const balanceEl = document.getElementById('summary-balance');
@@ -300,19 +394,21 @@ function renderTransactions() {
     const budgetSpentPercent = document.getElementById('budget-spent-percent');
     const budgetBar = document.getElementById('budget-progress-bar');
 
-    if (budgetDisplayTarget) budgetDisplayTarget.textContent = Utils.formatCurrency(State.budget);
-    if (budgetDisplaySpent) budgetDisplaySpent.textContent = Utils.formatCurrency(totals.spending);
+    const budgetScopeTotals = computeTotals(State.transactions);
 
-    const percentSpent = State.budget > 0 ? Math.round((totals.spending / State.budget) * 100) : 0;
-    if (budgetSpentPercent) budgetSpentPercent.textContent = `${percentSpent}%`;
+    if (budgetDisplayTarget) budgetDisplayTarget.textContent = Utils.formatCurrency(State.budget);
+    if (budgetDisplaySpent) budgetDisplaySpent.textContent = Utils.formatCurrency(budgetScopeTotals.spending);
+
+    const percentSpentRaw = State.budget > 0 ? Math.min(100, (budgetScopeTotals.spending / State.budget) * 100) : 0;
+    if (budgetSpentPercent) budgetSpentPercent.textContent = formatProgressPercent(percentSpentRaw);
 
     if (budgetBar) {
-        budgetBar.style.width = `${Math.min(100, percentSpent)}%`;
-        budgetBar.style.backgroundColor = totals.spending > State.budget && State.budget > 0 ? '#c44f67' : '#557d62';
+        budgetBar.style.width = `${Math.min(100, percentSpentRaw)}%`;
+        budgetBar.style.backgroundColor = budgetScopeTotals.spending > State.budget && State.budget > 0 ? '#c44f67' : '#557d62';
     }
 
     if (budgetStatusText) {
-        const diff = Utils.sub(State.budget, totals.spending);
+        const diff = Utils.sub(State.budget, budgetScopeTotals.spending);
         if (State.budget === 0) {
             budgetStatusText.textContent = 'No budget set';
             budgetStatusText.style.color = '#8c8278';
@@ -327,7 +423,7 @@ function renderTransactions() {
 
     // Update charts with both totals and budget
     if (window.ChartManager && typeof ChartManager.update === 'function') {
-        ChartManager.update(totals, State.budget);
+        ChartManager.update(displayTotals, State.budget, budgetScopeTotals);
     }
 }
 
@@ -349,7 +445,8 @@ function renderGoals() {
 
             totalTarget = Utils.add(totalTarget, gTarget);
             totalSaved = Utils.add(totalSaved, gSaved);
-            const percent = gTarget > 0 ? Math.min(100, Math.round((gSaved / gTarget) * 100)) : 0;
+            const percentRaw = gTarget > 0 ? Math.min(100, (gSaved / gTarget) * 100) : 0;
+            const percentLabel = formatProgressPercent(percentRaw);
 
             const card = document.createElement('div');
             card.className = 'goal-vault-item';
@@ -368,10 +465,10 @@ function renderGoals() {
                 </div>
                 <div class="progress-labels" style="font-size:10px;">
                     <span>${Utils.formatCurrency(gSaved)} / ${Utils.formatCurrency(gTarget)}</span>
-                    <span>${percent}%</span>
+                    <span>${percentLabel}</span>
                 </div>
                 <div class="progress-track" style="height:8px;">
-                    <div class="progress-fill" style="width: ${percent}%;"></div>
+                    <div class="progress-fill" style="width: ${percentRaw}%;"></div>
                 </div>
             `;
             fragment.appendChild(card);
@@ -379,34 +476,22 @@ function renderGoals() {
         container.appendChild(fragment);
     }
 
-    const overallPercent = totalTarget > 0 ? Math.min(100, Math.round((totalSaved / totalTarget) * 100)) : 0;
+    const overallPercentRaw = totalTarget > 0 ? Math.min(100, (totalSaved / totalTarget) * 100) : 0;
     const bar = document.getElementById('all-goals-bar');
     const label = document.getElementById('all-goals-percent');
-    if (bar) bar.style.width = `${overallPercent}%`;
-    if (label) label.textContent = `${overallPercent}% (${Utils.formatCurrency(totalSaved)} / ${Utils.formatCurrency(totalTarget)})`;
+    if (bar) bar.style.width = `${overallPercentRaw}%`;
+    if (label) label.textContent = `${formatProgressPercent(overallPercentRaw)} (${Utils.formatCurrency(totalSaved)} / ${Utils.formatCurrency(totalTarget)})`;
+
+    const unallocatedEl = document.getElementById('unallocated-savings');
+    const netSavingsBalance = computeTotals(State.transactions).savings;
+    const unallocated = Utils.sub(netSavingsBalance, totalSaved);
+    if (unallocatedEl) {
+        unallocatedEl.textContent = Utils.formatCurrency(unallocated);
+        unallocatedEl.style.color = unallocated < 0 ? '#c44f67' : '#4a423b';
+    }
 }
 
-function populateGoalDropdown() {
-    const select = document.getElementById('savings-goal-select');
-    if (!select) return;
-    select.innerHTML = '<option value="" selected></option>';
-    State.goals.forEach(g => {
-        const opt = document.createElement('option');
-        opt.value = g.id;
-        opt.textContent = g.name;
-        select.appendChild(opt);
-    });
-}
-
-// UI Dropdowns & Kebab Actions
-const accountSelect = document.getElementById('account');
-if (accountSelect) {
-    accountSelect.addEventListener('change', (e) => {
-        const group = document.getElementById('savings-goal-select-group');
-        group.style.display = e.target.value === 'savings' ? 'block' : 'none';
-        if (e.target.value !== 'savings') document.getElementById('savings-goal-select').value = '';
-    });
-}
+// UI Kebab Actions
 
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.kebab-container')) {
@@ -430,23 +515,11 @@ if (txForm) {
         e.preventDefault();
         const btn = document.getElementById('tx-submit-btn');
         const accountVal = document.getElementById('account').value;
-        const selectedGoalId = document.getElementById('savings-goal-select').value;
         const amountVal = Utils.sanitizeNumber(document.getElementById('amount').value);
 
         if (amountVal <= 0) {
             showAlert('Invalid Amount', 'Please enter an amount greater than ₱0.00.');
             return;
-        }
-
-        if (accountVal === 'savings') {
-            if (State.goals.length === 0) {
-                showAlert('No Existing Goals', 'You do not have any active Savings Goals. Please create a goal vault first.');
-                return;
-            }
-            if (!selectedGoalId) {
-                showAlert('No Goal Chosen', 'Please select which savings goal vault you would like to allocate this deposit to.');
-                return;
-            }
         }
 
         if (ActionLocks.has('transaction-submit')) {
@@ -461,60 +534,20 @@ if (txForm) {
             description: document.getElementById('description').value.trim(),
             account: accountVal,
             method: document.getElementById('method').value,
-            amount: amountVal,
-            goalId: selectedGoalId || null
+            amount: amountVal
         };
 
         try {
             if (editId) {
                 const oldTx = State.transactions.find(t => t.id === editId);
 
-                if (oldTx && oldTx.goalId) {
-                    const oldGoal = State.goals.find(g => g.id === oldTx.goalId);
-                    if (oldGoal) {
-                        let revertedSaved = Utils.sanitizeNumber(oldGoal.saved);
-                        const oldAmount = Utils.sanitizeNumber(oldTx.amount);
-
-                        if (oldTx.account === 'savings') {
-                            revertedSaved = Math.max(0, Utils.sub(revertedSaved, oldAmount));
-                        } else if (oldTx.isWithdrawal || oldTx.account === 'spending') {
-                            revertedSaved = Utils.add(revertedSaved, oldAmount);
-                        }
-                        await API.updateGoal(oldGoal.id, { saved: revertedSaved });
-                    }
-                }
-
                 if (oldTx && oldTx.isWithdrawal && payload.account === 'spending') {
                     payload.isWithdrawal = true;
                 }
 
                 await API.updateTransaction(editId, payload);
-
-                if (payload.goalId) {
-                    const newGoal = State.goals.find(g => g.id === payload.goalId);
-                    if (newGoal) {
-                        let currentSaved = Utils.sanitizeNumber(newGoal.saved);
-                        if (oldTx && oldTx.goalId === payload.goalId) {
-                            if (oldTx.account === 'savings') currentSaved = Math.max(0, Utils.sub(currentSaved, oldTx.amount));
-                            if (oldTx.isWithdrawal || oldTx.account === 'spending') currentSaved = Utils.add(currentSaved, oldTx.amount);
-                        }
-
-                        if (accountVal === 'savings') {
-                            currentSaved = Utils.add(currentSaved, amountVal);
-                        } else if (payload.isWithdrawal || accountVal === 'spending') {
-                            currentSaved = Math.max(0, Utils.sub(currentSaved, amountVal));
-                        }
-                        await API.updateGoal(newGoal.id, { saved: currentSaved });
-                    }
-                }
             } else {
                 await API.addTransaction(payload);
-                if (accountVal === 'savings' && selectedGoalId) {
-                    const goal = State.goals.find(g => g.id === selectedGoalId);
-                    if (goal) {
-                        await API.updateGoal(goal.id, { saved: Utils.add(goal.saved || 0, amountVal) });
-                    }
-                }
             }
             resetTxForm();
             await initApp();
@@ -538,10 +571,6 @@ window.startEditTx = (id) => {
     document.getElementById('method').value = tx.method || 'Cash';
     document.getElementById('amount').value = tx.amount;
 
-    const group = document.getElementById('savings-goal-select-group');
-    group.style.display = tx.account === 'savings' ? 'block' : 'none';
-    document.getElementById('savings-goal-select').value = tx.goalId || '';
-
     document.getElementById('tx-form-title').textContent = 'EDIT TRANSACTION';
     document.getElementById('tx-submit-btn').textContent = 'Save Changes';
     document.getElementById('tx-cancel-btn').style.display = 'block';
@@ -550,9 +579,8 @@ window.startEditTx = (id) => {
 function resetTxForm() {
     document.getElementById('transaction-form').reset();
     document.getElementById('edit-tx-id').value = '';
-    document.getElementById('savings-goal-select-group').style.display = 'none';
     document.getElementById('tx-form-title').textContent = 'LOG TRANSACTION';
-    document.getElementById('tx-submit-btn').textContent = 'Save Entry ♡';
+    document.getElementById('tx-submit-btn').textContent = 'Save Entry';
     document.getElementById('tx-cancel-btn').style.display = 'none';
 }
 
@@ -806,27 +834,22 @@ if (confirmDeleteBtn) {
 
         try {
             if (type === 'tx') {
-                const txToDelete = State.transactions.find(t => t.id === id);
-
-                if (txToDelete && txToDelete.goalId) {
-                    const goal = State.goals.find(g => g.id === txToDelete.goalId);
-                    if (goal) {
-                        let updatedSaved = Utils.sanitizeNumber(goal.saved);
-                        const txAmount = Utils.sanitizeNumber(txToDelete.amount);
-
-                        if (txToDelete.account === 'savings') {
-                            updatedSaved = Math.max(0, Utils.sub(updatedSaved, txAmount));
-                        } else if (txToDelete.isWithdrawal || txToDelete.account === 'spending') {
-                            updatedSaved = Utils.add(updatedSaved, txAmount);
-                        }
-
-                        await API.updateGoal(goal.id, { saved: updatedSaved });
-                    }
-                }
                 await API.deleteTransaction(id);
             }
 
             if (type === 'goal') {
+                const goalToDelete = State.goals.find(g => g.id === id);
+                const remainingSaved = Utils.sanitizeNumber(goalToDelete?.saved || 0);
+
+                if (goalToDelete && remainingSaved > 0) {
+                    await API.addTransaction({
+                        description: `Unallocated transfer from ${goalToDelete.name}`,
+                        account: 'savings',
+                        method: 'Bank Transfer',
+                        amount: remainingSaved
+                    });
+                }
+
                 const linkedTransactions = State.transactions.filter(t => t.goalId === id);
                 for (const tx of linkedTransactions) {
                     await API.updateTransaction(tx.id, { goalId: null });

@@ -189,7 +189,14 @@ app.post('/api/transactions', async (req, res) => {
     try {
         beginIdempotentRequest(idempotencyContext);
 
-        const { description, account, method, amount, goalId = null, isWithdrawal = false } = req.body || {};
+        const {
+            description,
+            account,
+            method,
+            amount,
+            goalId,
+            isWithdrawal = false
+        } = req.body || {};
         const userId = getUserId(req);
 
         if (!description || !account || !method || amount === undefined) {
@@ -207,7 +214,7 @@ app.post('/api/transactions', async (req, res) => {
             account,
             method,
             amount: normalizedAmount,
-            goalId,
+            goalId: goalId ?? null,
             isWithdrawal: Boolean(isWithdrawal),
             userId,
             date: new Date().toISOString()

@@ -20,10 +20,25 @@ body {
     overflow-x: hidden;
 }
 
+.max-w-7xl {
+    width: 100%;
+    max-width: 1280px;
+}
+
+.mx-auto {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.px-4 {
+    padding-left: 16px;
+    padding-right: 16px;
+}
+
 /* Master Planner Container */
 .planner-app {
     width: 100%;
-    max-width: 1280px;
+    max-width: none;
     background-color: #ffffff;
     border: 2.5px solid #ded5c8;
     border-radius: 28px;
@@ -349,7 +364,7 @@ body {
 
 .main-content-row {
     grid-template-columns: 1.55fr 1fr;
-    align-items: start;
+    align-items: stretch;
 }
 
 /* Planner Cards */
@@ -366,13 +381,21 @@ body {
     position: absolute;
     top: -12px;
     left: 16px;
+    display: inline-flex;
+    align-items: center;
     font-size: 10px;
     font-weight: 800;
     padding: 3px 14px;
+    min-height: 24px;
     border-radius: 12px;
     letter-spacing: 0.6px;
     border: 2px solid transparent;
     z-index: 10;
+}
+
+.card-tag-wrapper {
+    top: -12px;
+    left: 16px;
 }
 
 .card-header-flex {
@@ -400,19 +423,25 @@ body {
 
 .chart-box canvas {
     display: block;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 auto;
 }
 
 /* Table Area */
 .table-card {
     overflow: visible;
+    display: flex;
+    flex-direction: column;
 }
 
 .table-container {
-    max-height: 520px;
+    max-height: min(72vh, 760px);
     overflow-y: auto;
     overflow-x: auto;
     margin-top: 6px;
-    padding-bottom: 60px;
+    padding-bottom: 0;
+    flex: 1;
 }
 
 .planner-table {
@@ -730,7 +759,7 @@ body {
 
 .goal-actions {
     display: flex;
-    gap: 4px;
+    gap: 8px;
     align-items: center;
 }
 
@@ -801,6 +830,12 @@ body {
     background-color: #c98cd9;
     border-radius: 10px;
     transition: width 0.3s ease;
+}
+
+.unallocated-row {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed #ded5c8;
 }
 
 /* Monthly Summary */
