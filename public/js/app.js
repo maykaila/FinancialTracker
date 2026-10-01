@@ -389,7 +389,7 @@ function renderGoals() {
 function populateGoalDropdown() {
     const select = document.getElementById('savings-goal-select');
     if (!select) return;
-    select.innerHTML = '<option value="">-- Choose a Goal Vault --</option>';
+    select.innerHTML = '<option value="" selected></option>';
     State.goals.forEach(g => {
         const opt = document.createElement('option');
         opt.value = g.id;
