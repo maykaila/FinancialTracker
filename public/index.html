@@ -236,117 +236,12 @@
                     </form>
                 </div>
 
-                <!-- 3. Multiple Savings Goals Vault -->
-                <div class="planner-card goal-card">
-                    <div class="card-header-flex">
-                        <div class="card-tag-wrapper">
-                            <img src="assets/piggybank.png" class="deco-sticker sticker-tag-piggy" alt="piggy bank" />
-                            <div class="card-tag tag-purple">SAVINGS GOALS VAULTS</div>
-                        </div>
-                        <button type="button" id="open-add-goal-btn" class="icon-add-btn" title="Add Goal">+</button>
-                    </div>
-                    
-                    <div class="overall-vault-stats">
-                        <div class="progress-labels">
-                            <strong>ALL VAULTS PROGRESS</strong>
-                            <span id="all-goals-percent">0%</span>
-                        </div>
-                        <div class="progress-track">
-                            <div id="all-goals-bar" class="progress-fill" style="width: 0%;"></div>
-                        </div>
-                        <div class="progress-labels unallocated-row">
-                            <span>Unallocated Savings</span>
-                            <span id="unallocated-savings">₱0.00</span>
-                        </div>
-                    </div>
-
-                    <div id="goals-list-container" class="goals-vault-list">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
             </div>
         </section>
     </div>
     </div>
 
     <!-- Modals -->
-
-    <!-- Add Goal Modal -->
-    <div id="add-goal-modal" class="modal-overlay">
-        <div class="modal-dialog">
-            <h3>Add New Savings Goal</h3>
-            <form id="add-goal-form" class="planner-form">
-                <div class="form-group">
-                    <label for="new-goal-name">Goal Name</label>
-                    <input type="text" id="new-goal-name" placeholder="e.g. Travel Fund, New Laptop" required>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="new-goal-target">Target (₱)</label>
-                        <input type="number" id="new-goal-target" placeholder="5000" step="0.01" min="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="new-goal-saved">Initial Saved (₱)</label>
-                        <input type="number" id="new-goal-saved" placeholder="0" step="0.01" min="0">
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="planner-btn btn-secondary" onclick="closeModal('add-goal-modal')">Cancel</button>
-                    <button type="submit" class="planner-btn btn-primary">Create Goal</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Edit Goal Target Modal -->
-    <div id="edit-goal-modal" class="modal-overlay">
-        <div class="modal-dialog">
-            <h3 id="edit-goal-title">Edit Target Amount</h3>
-            <form id="edit-goal-form" class="planner-form">
-                <input type="hidden" id="edit-goal-id">
-                <div class="form-group">
-                    <label for="edit-goal-target">New Target Amount (₱)</label>
-                    <input type="number" id="edit-goal-target" step="0.01" min="1" required>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="planner-btn btn-secondary" onclick="closeModal('edit-goal-modal')">Cancel</button>
-                    <button type="submit" class="planner-btn btn-primary">Update Target</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Withdraw From Goal Modal -->
-    <div id="withdraw-goal-modal" class="modal-overlay">
-        <div class="modal-dialog">
-            <h3 id="withdraw-goal-title">Withdraw From Goal</h3>
-            <p id="withdraw-goal-avail" style="font-size: 11.5px; color: #8c8278; margin-bottom: 12px; font-weight: 700;"></p>
-            <form id="withdraw-goal-form" class="planner-form">
-                <input type="hidden" id="withdraw-goal-id">
-                <div class="form-group">
-                    <label for="withdraw-amount">Withdrawal Amount (₱)</label>
-                    <input type="number" id="withdraw-amount" placeholder="0.00" step="0.01" min="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label for="withdraw-method">Withdrawal Method</label>
-                    <select id="withdraw-method">
-                        <option value="Cash">Cash</option>
-                        <option value="Debit Card">Debit Card</option>
-                        <option value="E-Wallet">E-Wallet (GCash/Maya)</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="withdraw-reason">Reason / Spent On</label>
-                    <input type="text" id="withdraw-reason" placeholder="e.g. Booked Flights, Emergency" required>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="planner-btn btn-secondary" onclick="closeModal('withdraw-goal-modal')">Cancel</button>
-                    <button type="submit" class="planner-btn btn-danger">Confirm Withdrawal</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <!-- Delete Confirmation Modal -->
     <div id="delete-modal" class="modal-overlay">

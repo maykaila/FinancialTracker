@@ -89,7 +89,6 @@ initAuthProtection();
 
 const State = {
     transactions: [],
-    goals: [],
     budget: 0,
     isBudgetEditing: false,
     filterMode: 'all',
@@ -208,19 +207,16 @@ async function initApp() {
 
 
     try {
-        const [txData, goalsData, budgetData] = await Promise.all([
+        const [txData, budgetData] = await Promise.all([
             API.getTransactions().catch(() => []),
-            API.getGoals().catch(() => []),
             API.getBudget().catch(() => ({ amount: 0 }))
         ]);
         State.transactions = txData || [];
-        State.goals = goalsData || [];
         State.budget = budgetData?.amount || 0;
         renderAll();
     } catch (error) {
         console.error('Failed to initialize app data from API:', error);
         State.transactions = [];
-        State.goals = [];
         renderAll();
         showAlert('Connection Error', 'Unable to load records right now. Please try again in a moment.');
     }
@@ -255,7 +251,6 @@ if (monthFilter) {
 function renderAll() {
     renderPeriodAwareCardTitles();
     renderTransactions();
-    renderGoals();
 }
 
 function renderPeriodAwareCardTitles() {
@@ -424,70 +419,6 @@ function renderTransactions() {
     // Update charts with both totals and budget
     if (window.ChartManager && typeof ChartManager.update === 'function') {
         ChartManager.update(displayTotals, State.budget, budgetScopeTotals);
-    }
-}
-
-function renderGoals() {
-    const container = document.getElementById('goals-list-container');
-    if (!container) return;
-    container.innerHTML = '';
-
-    let totalTarget = 0;
-    let totalSaved = 0;
-
-    if (State.goals.length === 0) {
-        container.innerHTML = '<p style="font-size:11.5px; color:#8c8278; text-align:center; padding:10px 0;">No savings vaults active.</p>';
-    } else {
-        const fragment = document.createDocumentFragment();
-        State.goals.forEach(g => {
-            const gTarget = Utils.sanitizeNumber(g.target);
-            const gSaved = Utils.sanitizeNumber(g.saved);
-
-            totalTarget = Utils.add(totalTarget, gTarget);
-            totalSaved = Utils.add(totalSaved, gSaved);
-            const percentRaw = gTarget > 0 ? Math.min(100, (gSaved / gTarget) * 100) : 0;
-            const percentLabel = formatProgressPercent(percentRaw);
-
-            const card = document.createElement('div');
-            card.className = 'goal-vault-item';
-            card.innerHTML = `
-                <div class="goal-header-row">
-                    <span>${g.name}</span>
-                    <div class="goal-actions">
-                        <button type="button" class="action-btn withdraw" onclick="openWithdrawGoalModal('${g.id}')" title="Withdraw / Spend from Vault">−</button>
-                        <button type="button" class="action-btn edit" onclick="openEditGoalTarget('${g.id}')" title="Edit Target">
-                            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                        </button>
-                        <button type="button" class="action-btn delete" onclick="promptDelete('goal', '${g.id}')" title="Delete Goal">
-                            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="progress-labels" style="font-size:10px;">
-                    <span>${Utils.formatCurrency(gSaved)} / ${Utils.formatCurrency(gTarget)}</span>
-                    <span>${percentLabel}</span>
-                </div>
-                <div class="progress-track" style="height:8px;">
-                    <div class="progress-fill" style="width: ${percentRaw}%;"></div>
-                </div>
-            `;
-            fragment.appendChild(card);
-        });
-        container.appendChild(fragment);
-    }
-
-    const overallPercentRaw = totalTarget > 0 ? Math.min(100, (totalSaved / totalTarget) * 100) : 0;
-    const bar = document.getElementById('all-goals-bar');
-    const label = document.getElementById('all-goals-percent');
-    if (bar) bar.style.width = `${overallPercentRaw}%`;
-    if (label) label.textContent = `${formatProgressPercent(overallPercentRaw)} (${Utils.formatCurrency(totalSaved)} / ${Utils.formatCurrency(totalTarget)})`;
-
-    const unallocatedEl = document.getElementById('unallocated-savings');
-    const netSavingsBalance = computeTotals(State.transactions).savings;
-    const unallocated = Utils.sub(netSavingsBalance, totalSaved);
-    if (unallocatedEl) {
-        unallocatedEl.textContent = Utils.formatCurrency(unallocated);
-        unallocatedEl.style.color = unallocated < 0 ? '#c44f67' : '#4a423b';
     }
 }
 
@@ -661,164 +592,10 @@ if (budgetEditBtn) {
     });
 }
 
-// Add Goal Form
-const addGoalBtn = document.getElementById('open-add-goal-btn');
-if (addGoalBtn) addGoalBtn.addEventListener('click', () => openModal('add-goal-modal'));
-
-const addGoalForm = document.getElementById('add-goal-form');
-if (addGoalForm) {
-    addGoalForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (ActionLocks.has('goal-add')) return;
-
-        const target = Utils.sanitizeNumber(document.getElementById('new-goal-target').value);
-        const saved = Utils.sanitizeNumber(document.getElementById('new-goal-saved').value);
-
-        if (target <= 0) {
-            showAlert('Invalid Target', 'Goal target amount must be greater than ₱0.00.');
-            return;
-        }
-
-        const payload = {
-            name: document.getElementById('new-goal-name').value.trim(),
-            target,
-            saved: Math.max(0, saved)
-        };
-
-        const submitBtn = addGoalForm.querySelector('button[type="submit"]');
-        ActionLocks.add('goal-add');
-        if (submitBtn) submitBtn.disabled = true;
-
-        try {
-            await API.addGoal(payload);
-            document.getElementById('add-goal-form').reset();
-            closeModal('add-goal-modal');
-            await initApp();
-        } catch (error) {
-            console.error('Add goal failed:', error);
-            showAlert('Save Failed', 'Unable to create goal right now.');
-        } finally {
-            if (submitBtn) submitBtn.disabled = false;
-            ActionLocks.delete('goal-add');
-        }
-    });
-}
-
-// Edit Goal Target
-window.openEditGoalTarget = (id) => {
-    const goal = State.goals.find(g => g.id === id);
-    if (!goal) return;
-    document.getElementById('edit-goal-id').value = goal.id;
-    document.getElementById('edit-goal-title').textContent = `Edit Target: ${goal.name}`;
-    document.getElementById('edit-goal-target').value = goal.target;
-    openModal('edit-goal-modal');
-};
-
-const editGoalForm = document.getElementById('edit-goal-form');
-if (editGoalForm) {
-    editGoalForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (ActionLocks.has('goal-edit')) return;
-
-        const id = document.getElementById('edit-goal-id').value;
-        const target = Utils.sanitizeNumber(document.getElementById('edit-goal-target').value);
-
-        if (target <= 0) {
-            showAlert('Invalid Target', 'Goal target must be greater than ₱0.00.');
-            return;
-        }
-
-        const submitBtn = editGoalForm.querySelector('button[type="submit"]');
-        ActionLocks.add('goal-edit');
-        if (submitBtn) submitBtn.disabled = true;
-
-        try {
-            await API.updateGoal(id, { target });
-            closeModal('edit-goal-modal');
-            await initApp();
-        } catch (error) {
-            console.error('Edit goal failed:', error);
-            showAlert('Update Failed', 'Unable to update this goal right now.');
-        } finally {
-            if (submitBtn) submitBtn.disabled = false;
-            ActionLocks.delete('goal-edit');
-        }
-    });
-}
-
-// Withdraw from Goal
-window.openWithdrawGoalModal = (id) => {
-    const goal = State.goals.find(g => g.id === id);
-    if (!goal) return;
-
-    document.getElementById('withdraw-goal-id').value = goal.id;
-    document.getElementById('withdraw-goal-title').textContent = `Withdraw: ${goal.name}`;
-    document.getElementById('withdraw-goal-avail').textContent = `Available in vault: ${Utils.formatCurrency(goal.saved || 0)}`;
-    document.getElementById('withdraw-amount').value = '';
-    document.getElementById('withdraw-reason').value = `Spent from ${goal.name}`;
-    openModal('withdraw-goal-modal');
-};
-
-const withdrawGoalForm = document.getElementById('withdraw-goal-form');
-if (withdrawGoalForm) {
-    withdrawGoalForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (ActionLocks.has('goal-withdraw')) return;
-
-        const id = document.getElementById('withdraw-goal-id').value;
-        const goal = State.goals.find(g => g.id === id);
-        if (!goal) return;
-
-        const amountToWithdraw = Utils.sanitizeNumber(document.getElementById('withdraw-amount').value);
-        const method = document.getElementById('withdraw-method').value;
-        const reason = document.getElementById('withdraw-reason').value.trim();
-        const currentSaved = Utils.sanitizeNumber(goal.saved);
-
-        if (amountToWithdraw <= 0) {
-            showAlert('Invalid Amount', 'Withdrawal amount must be greater than ₱0.00.');
-            return;
-        }
-
-        if (amountToWithdraw > currentSaved) {
-            showAlert('Insufficient Vault Funds', `This vault only has ${Utils.formatCurrency(currentSaved)} available.`);
-            return;
-        }
-
-        const submitBtn = withdrawGoalForm.querySelector('button[type="submit"]');
-        ActionLocks.add('goal-withdraw');
-        if (submitBtn) submitBtn.disabled = true;
-
-        try {
-            const newSaved = Math.max(0, Utils.sub(currentSaved, amountToWithdraw));
-            await API.updateGoal(goal.id, { saved: newSaved });
-
-            await API.addTransaction({
-                description: reason || `Spent from ${goal.name}`,
-                account: 'spending',
-                method: method,
-                amount: amountToWithdraw,
-                goalId: goal.id,
-                isWithdrawal: true
-            });
-
-            document.getElementById('withdraw-goal-form').reset();
-            closeModal('withdraw-goal-modal');
-            await initApp();
-        } catch (error) {
-            console.error('Withdraw goal failed:', error);
-            showAlert('Save Failed', 'Unable to complete withdrawal right now.');
-        } finally {
-            if (submitBtn) submitBtn.disabled = false;
-            ActionLocks.delete('goal-withdraw');
-        }
-    });
-}
-
 // Delete Record Handling
 window.promptDelete = (type, id) => {
     State.pendingDelete = { type, id };
-    document.getElementById('delete-modal-msg').textContent =
-        type === 'tx' ? 'Are you sure you want to delete this transaction record?' : 'Are you sure you want to delete this savings goal vault?';
+    document.getElementById('delete-modal-msg').textContent = 'Are you sure you want to delete this transaction record?';
     openModal('delete-modal');
 };
 
@@ -835,26 +612,6 @@ if (confirmDeleteBtn) {
         try {
             if (type === 'tx') {
                 await API.deleteTransaction(id);
-            }
-
-            if (type === 'goal') {
-                const goalToDelete = State.goals.find(g => g.id === id);
-                const remainingSaved = Utils.sanitizeNumber(goalToDelete?.saved || 0);
-
-                if (goalToDelete && remainingSaved > 0) {
-                    await API.addTransaction({
-                        description: `Unallocated transfer from ${goalToDelete.name}`,
-                        account: 'savings',
-                        method: 'Bank Transfer',
-                        amount: remainingSaved
-                    });
-                }
-
-                const linkedTransactions = State.transactions.filter(t => t.goalId === id);
-                for (const tx of linkedTransactions) {
-                    await API.updateTransaction(tx.id, { goalId: null });
-                }
-                await API.deleteGoal(id);
             }
 
             closeModal('delete-modal');
