@@ -291,6 +291,42 @@ body {
     opacity: 0.85;
 }
 
+.loading-connection-msg {
+    margin: -10px 0 14px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #8c8278;
+    background-color: #fcfbf9;
+    border: 1.5px dashed #ded5c8;
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
+@keyframes skeletonShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.skeleton-line {
+    display: inline-block;
+    height: 0.95em;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #f0ebe3 20%, #e7e0d4 40%, #f0ebe3 60%);
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.3s ease-in-out infinite;
+    vertical-align: middle;
+}
+
+.skeleton-row td {
+    color: transparent !important;
+}
+
+.is-loading .planner-btn,
+.is-loading .kebab-btn,
+.is-loading .icon-add-btn {
+    pointer-events: none;
+}
+
 /* Top 5 Metrics Grid */
 .metrics-grid {
     display: grid;

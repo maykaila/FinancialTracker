@@ -13,6 +13,7 @@ let currentUser = null;
 const ActionLocks = new Set();
 let hasBoundLogoutHandlers = false;
 let initializedUserId = null;
+let slowConnectionTimer = null;
 
 // Initialize Auth & Protect Route
 async function initAuthProtection() {
@@ -190,6 +191,89 @@ window.showAlert = function(title, message) {
     openModal('alert-modal');
 };
 
+function skeletonLine(width) {
+    return `<span class="skeleton-line" style="width:${width};"></span>`;
+}
+
+function setLoadingNotice(message = '', persistMs = 0) {
+    const noticeEl = document.getElementById('loading-connection-msg');
+    if (!noticeEl) return;
+
+    if (!message) {
+        noticeEl.textContent = '';
+        noticeEl.style.display = 'none';
+        return;
+    }
+
+    noticeEl.textContent = message;
+    noticeEl.style.display = 'block';
+
+    if (persistMs > 0) {
+        window.setTimeout(() => {
+            noticeEl.style.display = 'none';
+        }, persistMs);
+    }
+}
+
+function renderLoadingSkeleton() {
+    const metricWidths = {
+        'total-income': '110px',
+        'total-spending': '110px',
+        'total-savings': '110px',
+        'total-investments': '110px',
+        'total-protection': '110px'
+    };
+
+    Object.entries(metricWidths).forEach(([id, width]) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = skeletonLine(width);
+    });
+
+    const summaryTargets = ['summary-income', 'summary-spending', 'summary-protection', 'summary-assets', 'summary-balance'];
+    summaryTargets.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = skeletonLine('88px');
+    });
+
+    const budgetTarget = document.getElementById('budget-display-target');
+    const budgetSpent = document.getElementById('budget-display-spent');
+    const budgetPercent = document.getElementById('budget-spent-percent');
+    const budgetStatus = document.getElementById('budget-status-text');
+    const budgetBar = document.getElementById('budget-progress-bar');
+
+    if (budgetTarget) budgetTarget.innerHTML = skeletonLine('90px');
+    if (budgetSpent) budgetSpent.innerHTML = skeletonLine('90px');
+    if (budgetPercent) budgetPercent.innerHTML = skeletonLine('36px');
+    if (budgetStatus) budgetStatus.innerHTML = skeletonLine('124px');
+    if (budgetBar) budgetBar.style.width = '28%';
+
+    const tbody = document.getElementById('transaction-tbody');
+    if (tbody) {
+        tbody.innerHTML = '';
+        const rows = Array.from({ length: 6 }).map(() => `
+            <tr class="skeleton-row">
+                <td>${skeletonLine('40px')}</td>
+                <td>${skeletonLine('180px')}</td>
+                <td>${skeletonLine('76px')}</td>
+                <td class="text-right">${skeletonLine('84px')}</td>
+                <td class="text-center">${skeletonLine('22px')}</td>
+            </tr>
+        `).join('');
+        tbody.innerHTML = rows;
+    }
+}
+
+function setLoadingState(isLoading) {
+    const appRoot = document.querySelector('.planner-app');
+    if (appRoot) {
+        appRoot.classList.toggle('is-loading', isLoading);
+    }
+
+    if (isLoading) {
+        renderLoadingSkeleton();
+    }
+}
+
 async function initApp() {
     const periodModeSelect = document.getElementById('period-mode-select');
     const filterInput = document.getElementById('month-year-filter');
@@ -207,6 +291,15 @@ async function initApp() {
 
 
     try {
+        setLoadingState(true);
+        setLoadingNotice('');
+        if (slowConnectionTimer) {
+            clearTimeout(slowConnectionTimer);
+        }
+        slowConnectionTimer = setTimeout(() => {
+            setLoadingNotice('Connection is slow. Still loading your records...');
+        }, 1800);
+
         const [txData, budgetData] = await Promise.all([
             API.getTransactions().catch(() => []),
             API.getBudget().catch(() => ({ amount: 0 }))
@@ -216,9 +309,23 @@ async function initApp() {
         renderAll();
     } catch (error) {
         console.error('Failed to initialize app data from API:', error);
-        State.transactions = [];
+        const hasExistingData = State.transactions.length > 0 || State.budget > 0;
+        if (!hasExistingData) {
+            State.transactions = [];
+            State.budget = 0;
+        }
         renderAll();
+        setLoadingNotice('Unable to refresh data right now. Showing latest available values.', 5000);
         showAlert('Connection Error', 'Unable to load records right now. Please try again in a moment.');
+    } finally {
+        if (slowConnectionTimer) {
+            clearTimeout(slowConnectionTimer);
+            slowConnectionTimer = null;
+        }
+        setLoadingState(false);
+        if (document.getElementById('loading-connection-msg')?.textContent === 'Connection is slow. Still loading your records...') {
+            setLoadingNotice('');
+        }
     }
 }
 
