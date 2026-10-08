@@ -195,7 +195,8 @@ app.post('/api/transactions', async (req, res) => {
             method,
             amount,
             goalId,
-            isWithdrawal = false
+            isWithdrawal = false,
+            date
         } = req.body || {};
         const userId = getUserId(req);
 
@@ -208,6 +209,11 @@ app.post('/api/transactions', async (req, res) => {
             return res.status(400).json({ error: 'amount must be greater than 0' });
         }
 
+        const parsedDate = date ? new Date(date) : new Date();
+        if (isNaN(parsedDate.getTime())) {
+            return res.status(400).json({ error: 'date is invalid' });
+        }
+
         const database = getDb();
         const created = {
             description: String(description).trim(),
@@ -217,7 +223,7 @@ app.post('/api/transactions', async (req, res) => {
             goalId: goalId ?? null,
             isWithdrawal: Boolean(isWithdrawal),
             userId,
-            date: new Date().toISOString()
+            date: parsedDate.toISOString()
         };
 
         const docRef = await addDoc(collection(database, 'transactions'), created);
@@ -251,6 +257,13 @@ app.patch('/api/transactions/:id', async (req, res) => {
         const patch = { ...req.body };
         if (patch.amount !== undefined) {
             patch.amount = toAmount(patch.amount);
+        }
+        if (patch.date !== undefined) {
+            const parsedDate = new Date(patch.date);
+            if (isNaN(parsedDate.getTime())) {
+                return res.status(400).json({ error: 'date is invalid' });
+            }
+            patch.date = parsedDate.toISOString();
         }
 
         await updateDoc(ref, patch);

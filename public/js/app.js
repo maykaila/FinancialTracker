@@ -123,6 +123,14 @@ const Utils = {
         }
         const parsed = new Date(val);
         return isNaN(parsed.getTime()) ? new Date() : parsed;
+    },
+
+    toDateInputValue: (val) => {
+        const d = Utils.parseTxDate(val);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 };
 
@@ -548,6 +556,10 @@ window.toggleKebab = (e, id) => {
 
 // Main Transaction Form Submit
 const txForm = document.getElementById('transaction-form');
+const txDateInput = document.getElementById('tx-date');
+if (txDateInput && !txDateInput.value) {
+    txDateInput.value = Utils.toDateInputValue(new Date());
+}
 if (txForm) {
     txForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -568,11 +580,13 @@ if (txForm) {
 
         btn.disabled = true;
         const editId = document.getElementById('edit-tx-id').value;
+        const dateVal = document.getElementById('tx-date').value;
         const payload = {
             description: document.getElementById('description').value.trim(),
             account: accountVal,
             method: document.getElementById('method').value,
-            amount: amountVal
+            amount: amountVal,
+            date: Utils.parseTxDate(dateVal).toISOString()
         };
 
         try {
@@ -608,6 +622,7 @@ window.startEditTx = (id) => {
     document.getElementById('account').value = tx.account;
     document.getElementById('method').value = tx.method || 'Cash';
     document.getElementById('amount').value = tx.amount;
+    document.getElementById('tx-date').value = Utils.toDateInputValue(tx.date);
 
     document.getElementById('tx-form-title').textContent = 'EDIT TRANSACTION';
     document.getElementById('tx-submit-btn').textContent = 'Save Changes';
@@ -617,6 +632,7 @@ window.startEditTx = (id) => {
 function resetTxForm() {
     document.getElementById('transaction-form').reset();
     document.getElementById('edit-tx-id').value = '';
+    document.getElementById('tx-date').value = Utils.toDateInputValue(new Date());
     document.getElementById('tx-form-title').textContent = 'LOG TRANSACTION';
     document.getElementById('tx-submit-btn').textContent = 'Save Entry';
     document.getElementById('tx-cancel-btn').style.display = 'none';
